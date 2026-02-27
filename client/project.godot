@@ -48,6 +48,11 @@ move_left={
 ]
 }
 
+[layer_names]
+
+2d_physics/layer_1="Player"
+2d_physics/layer_5="Walls"
+
 [physics]
 
 3d/physics_engine="Jolt Physics"

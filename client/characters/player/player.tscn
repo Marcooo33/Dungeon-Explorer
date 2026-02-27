@@ -135,6 +135,8 @@ _data = {
 }
 
 [node name="Player" type="CharacterBody2D" unique_id=424238145]
+collision_mask = 16
+motion_mode = 1
 script = ExtResource("1_g2els")
 
 [node name="Sprite2D" type="Sprite2D" parent="." unique_id=1916547520]
