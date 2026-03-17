@@ -1,0 +1,29 @@
+# ---------- build stage ----------
+FROM debian:bookworm AS builder
+
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /build
+
+# copiamo server e shared
+COPY server /build/server
+COPY shared /build/shared
+
+WORKDIR /build/server
+
+RUN make
+
+
+# ---------- runtime stage ----------
+FROM debian:bookworm-slim
+
+WORKDIR /app
+
+# copiamo solo il binario
+COPY --from=builder /build/server/server .
+
+EXPOSE 8080
+
+CMD ["./server"]

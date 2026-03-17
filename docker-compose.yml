@@ -1,0 +1,25 @@
+version: "3.9"
+
+services:
+
+  server-dev:
+    build:
+      context: .
+      dockerfile: .devcontainer/Dockerfile.dev
+    volumes:
+      - ./server:/workspace/server
+      - ./shared:/workspace/shared
+    working_dir: /workspace
+    command: sleep infinity
+    ports:
+      - "8080:8080"
+
+  server-prod:
+    build:
+      context: .
+      dockerfile: server/Dockerfile.prod
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+    profiles:
+      - prod
