@@ -13,7 +13,7 @@ COPY shared /build/shared
 
 WORKDIR /build/server
 
-RUN make
+RUN make compile
 
 
 # ---------- runtime stage ----------
@@ -22,7 +22,7 @@ FROM debian:bookworm-slim
 WORKDIR /app
 
 # copiamo solo il binario
-COPY --from=builder /build/server/server .
+COPY --from=builder /build/server/bin .
 
 EXPOSE 8080
 
