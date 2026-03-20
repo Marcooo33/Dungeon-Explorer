@@ -1,8 +1,8 @@
 CC=gcc
 CFLAGS=-Wall -Wextra -O2 -I./includes -I../shared -pthread
 
-SRC=src/server.c
-OUT=server
+SRC=src/connection.c
+OUT=connection
 
 compile:
 	mkdir -p bin
