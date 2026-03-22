@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <time.h>
+#include <stdbool.h>
 
 #define PORT 8080
 #define MAX_GAMES 10
@@ -11,6 +12,7 @@
 struct Game {
     int port;
     int players;
+    bool started;
     char code[8];
 };
 
@@ -28,19 +30,31 @@ void generate_code(char *code) {
 }
 
 int start_new_game(char *out_code) {
-    int port = 6000 + rand() % 1000;
+
+    int pipefd[2];
+    pipe(pipefd);
 
     pid_t pid = fork();
 
     if (pid == 0) {
-        char port_str[10];
-        sprintf(port_str, "%d", port);
+        close(pipefd[0]); // chiude lettura
 
-        execl("./bin/game", "game", port_str, NULL);
+        char fd_str[10];
+
+        sprintf(fd_str, "%d", pipefd[1]);
+
+        execl("./bin/game", "game", fd_str, NULL);
+        
         perror("execl fallita");
         exit(1);
 
     } else {
+        close(pipefd[1]); // chiude scrittura
+
+        int port;
+        read(pipefd[0], &port, sizeof(port)); // aspetta il figlio
+
+        close(pipefd[0]);
 
         char code[8];
         generate_code(code);
@@ -74,7 +88,6 @@ int main() {
 
     int server_fd, new_socket;
     struct sockaddr_in address;
-    int addrlen = sizeof(address);
     int opt=1;
 
     server_fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -164,7 +177,6 @@ int main() {
         char msg[64];
         sprintf(msg, "[MATCHMAKER] START %d %s\n", port, code);
 
-        
         send(new_socket, msg, strlen(msg), 0);
         close(new_socket);
     }

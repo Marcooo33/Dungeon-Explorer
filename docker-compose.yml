@@ -10,8 +10,7 @@ services:
       - SERVER_IP=server-dev
       - SERVER_PORT=8080
     depends_on:
-      server-dev:
-        condition: service_healthy
+      - server-dev
     networks:
       - dungeon-net
 
@@ -22,11 +21,6 @@ services:
     volumes:
       - ./server:/workspace/server
       - ./shared:/workspace/shared
-    healthcheck:
-      test: ["CMD", "nc", "-z", "localhost", "8080"]
-      interval: 5s
-      timeout: 1s
-      retries: 3
     ports:
       - "8080:8080"
     networks:
