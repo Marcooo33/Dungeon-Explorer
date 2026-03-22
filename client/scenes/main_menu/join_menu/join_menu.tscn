@@ -1,0 +1,108 @@
+[gd_scene format=3 uid="uid://o02uktcrbgr1"]
+
+[ext_resource type="FontFile" uid="uid://bddg2pa2n2t0j" path="res://scenes/main_menu/GrapeSoda.ttf" id="1_6ahre"]
+[ext_resource type="Script" uid="uid://dkcmxshe1fdt8" path="res://scenes/main_menu/join_menu/join_menu.gd" id="1_mn2gc"]
+[ext_resource type="Script" uid="uid://cpqeg56vnhlem" path="res://scenes/main_menu/join_menu/code_line_edit.gd" id="3_c4ob7"]
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_mn2gc"]
+
+[sub_resource type="FontVariation" id="FontVariation_c4ob7"]
+base_font = ExtResource("1_6ahre")
+spacing_glyph = 30
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_mn2gc"]
+bg_color = Color(1, 1, 1, 1)
+corner_radius_top_left = 16
+corner_radius_top_right = 16
+corner_radius_bottom_right = 16
+corner_radius_bottom_left = 16
+shadow_size = 5
+shadow_offset = Vector2(0, 3)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_c4ob7"]
+corner_radius_top_left = 16
+corner_radius_top_right = 16
+corner_radius_bottom_right = 16
+corner_radius_bottom_left = 16
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_ye38i"]
+corner_radius_top_left = 16
+corner_radius_top_right = 16
+corner_radius_bottom_right = 16
+corner_radius_bottom_left = 16
+
+[node name="JoinMenu" type="Control" unique_id=183213359]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_mn2gc")
+
+[node name="Panel" type="Panel" parent="." unique_id=1452962850]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxTexture_mn2gc")
+
+[node name="Label" type="Label" parent="Panel" unique_id=588698339]
+layout_mode = 1
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -20.0
+offset_top = 57.0
+offset_right = 20.0
+offset_bottom = 80.0
+grow_horizontal = 2
+theme_override_colors/font_color = Color(0.14117648, 0.22745098, 0.23529412, 1)
+theme_override_fonts/font = ExtResource("1_6ahre")
+theme_override_font_sizes/font_size = 100
+text = "Insert game code"
+
+[node name="VBoxContainer" type="VBoxContainer" parent="." unique_id=351110372]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -363.5
+offset_top = -96.375
+offset_right = 363.5
+offset_bottom = 96.375
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 50
+
+[node name="CodeLineEdit" type="LineEdit" parent="VBoxContainer" unique_id=1087977495]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_fonts/font = SubResource("FontVariation_c4ob7")
+theme_override_font_sizes/font_size = 70
+alignment = 1
+max_length = 6
+context_menu_enabled = false
+caret_blink = true
+script = ExtResource("3_c4ob7")
+
+[node name="JoinButton" type="Button" parent="VBoxContainer" unique_id=456174614]
+layout_mode = 2
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_colors/font_hover_color = Color(0, 0, 0, 0.9254902)
+theme_override_colors/font_hover_pressed_color = Color(1, 1, 1, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 0.59607846)
+theme_override_fonts/font = ExtResource("1_6ahre")
+theme_override_font_sizes/font_size = 60
+theme_override_styles/normal = SubResource("StyleBoxFlat_mn2gc")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_c4ob7")
+theme_override_styles/hover = SubResource("StyleBoxFlat_ye38i")
+text = "Join"
+metadata/_edit_use_anchors_ = true
+
+[connection signal="text_changed" from="VBoxContainer/CodeLineEdit" to="VBoxContainer/CodeLineEdit" method="_on_text_changed"]
+[connection signal="pressed" from="VBoxContainer/JoinButton" to="." method="_on_join_button_pressed"]

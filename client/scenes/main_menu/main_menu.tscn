@@ -1,0 +1,124 @@
+[gd_scene format=3 uid="uid://c62nvk4fmrsri"]
+
+[ext_resource type="Script" uid="uid://dq6o7w3v4j0va" path="res://scenes/main_menu/main_menu.gd" id="1_f5okj"]
+[ext_resource type="FontFile" uid="uid://bddg2pa2n2t0j" path="res://scenes/main_menu/GrapeSoda.ttf" id="2_o5w3e"]
+
+[sub_resource type="StyleBoxTexture" id="StyleBoxTexture_jc45y"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_d3a7t"]
+bg_color = Color(1, 1, 1, 1)
+corner_radius_top_left = 16
+corner_radius_top_right = 16
+corner_radius_bottom_right = 16
+corner_radius_bottom_left = 16
+shadow_size = 5
+shadow_offset = Vector2(0, 3)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_0ebjn"]
+corner_radius_top_left = 16
+corner_radius_top_right = 16
+corner_radius_bottom_right = 16
+corner_radius_bottom_left = 16
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_ob46e"]
+corner_radius_top_left = 16
+corner_radius_top_right = 16
+corner_radius_bottom_right = 16
+corner_radius_bottom_left = 16
+
+[node name="MainMenu" type="Control" unique_id=1474532954]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_f5okj")
+
+[node name="Panel" type="Panel" parent="." unique_id=951290453]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxTexture_jc45y")
+
+[node name="Label" type="Label" parent="Panel" unique_id=1398404792]
+layout_mode = 1
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -20.0
+offset_top = 57.0
+offset_right = 20.0
+offset_bottom = 80.0
+grow_horizontal = 2
+theme_override_colors/font_color = Color(0.14117648, 0.22745098, 0.23529412, 1)
+theme_override_fonts/font = ExtResource("2_o5w3e")
+theme_override_font_sizes/font_size = 100
+text = "Dungeon Explorer"
+
+[node name="VBoxContainer" type="VBoxContainer" parent="." unique_id=156078512]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -251.0
+offset_top = -87.5
+offset_right = 251.0
+offset_bottom = 157.5
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 25
+
+[node name="CreateButton" type="Button" parent="VBoxContainer" unique_id=1468813064]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_colors/font_hover_color = Color(0, 0, 0, 0.9254902)
+theme_override_colors/font_hover_pressed_color = Color(1, 1, 1, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 0.59607846)
+theme_override_fonts/font = ExtResource("2_o5w3e")
+theme_override_font_sizes/font_size = 60
+theme_override_styles/normal = SubResource("StyleBoxFlat_d3a7t")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_0ebjn")
+theme_override_styles/hover = SubResource("StyleBoxFlat_ob46e")
+text = "Create a game"
+metadata/_edit_use_anchors_ = true
+
+[node name="JoinButton" type="Button" parent="VBoxContainer" unique_id=635093589]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_colors/font_hover_color = Color(0, 0, 0, 0.9254902)
+theme_override_colors/font_hover_pressed_color = Color(1, 1, 1, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 0.59607846)
+theme_override_fonts/font = ExtResource("2_o5w3e")
+theme_override_font_sizes/font_size = 60
+theme_override_styles/normal = SubResource("StyleBoxFlat_d3a7t")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_0ebjn")
+theme_override_styles/hover = SubResource("StyleBoxFlat_ob46e")
+text = "Join a game"
+metadata/_edit_use_anchors_ = true
+
+[node name="ExitButton" type="Button" parent="VBoxContainer" unique_id=804280272]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_colors/font_hover_color = Color(0, 0, 0, 0.9254902)
+theme_override_colors/font_hover_pressed_color = Color(1, 1, 1, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 0.59607846)
+theme_override_fonts/font = ExtResource("2_o5w3e")
+theme_override_font_sizes/font_size = 60
+theme_override_styles/normal = SubResource("StyleBoxFlat_d3a7t")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_0ebjn")
+theme_override_styles/hover = SubResource("StyleBoxFlat_ob46e")
+text = "Exit"
+metadata/_edit_use_anchors_ = true
+
+[connection signal="pressed" from="VBoxContainer/CreateButton" to="." method="_on_createGame_button_pressed"]
+[connection signal="pressed" from="VBoxContainer/JoinButton" to="." method="_on_joinGame_button_pressed"]
+[connection signal="pressed" from="VBoxContainer/ExitButton" to="." method="_on_exit_button_pressed"]

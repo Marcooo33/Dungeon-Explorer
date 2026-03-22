@@ -11,9 +11,13 @@ config_version=5
 [application]
 
 config/name="dungeon-explorer"
-run/main_scene="uid://bj8687ybo8yhn"
+run/main_scene="uid://c62nvk4fmrsri"
 config/features=PackedStringArray("4.6", "GL Compatibility")
 config/icon="res://icon.svg"
+
+[autoload]
+
+NetworkManager="*uid://dnq8aytad4rdv"
 
 [input]
 

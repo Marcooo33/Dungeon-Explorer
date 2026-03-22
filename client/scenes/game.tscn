@@ -15,3 +15,9 @@ position = Vector2(153, 77)
 [node name="Camera2D" type="Camera2D" parent="." unique_id=818145962]
 position = Vector2(154, 84)
 zoom = Vector2(4, 4)
+
+[node name="MainMenu" type="Control" parent="." unique_id=863300638]
+layout_mode = 3
+anchors_preset = 0
+offset_right = 40.0
+offset_bottom = 40.0
