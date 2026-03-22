@@ -32,6 +32,7 @@ func _process(_delta):
 			var game_port = data.get_slice(" ", 2).to_int();
 			
 			# Creaiamo la socket per la partita
+			await get_tree().create_timer(2.0).timeout
 			var socket_connection_status = game_socket.connect_to_host("server-dev", game_port)
 			if socket_connection_status == OK:
 				print("Tentativo di connessione alla partita in corso...")
