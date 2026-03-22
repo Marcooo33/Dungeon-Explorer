@@ -1,0 +1,8 @@
+{
+    "name": "Godot-Headless Client Dev",
+    "dockerComposeFile": "../../docker-compose.yml",
+    "service": "client-headless",
+    "workspaceFolder": "/workspace",
+    "overrideCommand": true,
+    "initializeCommand": "docker compose down client-headless"
+}

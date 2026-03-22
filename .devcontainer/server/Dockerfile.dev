@@ -7,10 +7,12 @@ RUN apt-get update && apt-get install -y \
     strace \
     git \
     make \
+    netcat-openbsd \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /workspace
 COPY server/ ./server/
 COPY shared/ ./shared/
 
-CMD ["sleep", "infinity"]
+WORKDIR /workspace/server
+CMD ["make", "all"]

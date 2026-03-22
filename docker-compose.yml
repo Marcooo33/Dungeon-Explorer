@@ -1,18 +1,36 @@
-version: "3.9"
-
 services:
+  client-headless:
+    build:
+      context: .
+      dockerfile: ./.devcontainer/client/Dockerfile.dev
+    volumes:
+      - ./client:/workspace/client
+      - ./shared:/workspace/shared
+    environment:
+      - SERVER_IP=server-dev
+      - SERVER_PORT=8080
+    depends_on:
+      server-dev:
+        condition: service_healthy
+    networks:
+      - dungeon-net
 
   server-dev:
     build:
       context: .
-      dockerfile: .devcontainer/Dockerfile.dev
+      dockerfile: .devcontainer/server/Dockerfile.dev
     volumes:
       - ./server:/workspace/server
       - ./shared:/workspace/shared
-    working_dir: /workspace
-    command: sleep infinity
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "8080"]
+      interval: 5s
+      timeout: 1s
+      retries: 3
     ports:
       - "8080:8080"
+    networks:
+      - dungeon-net
 
   server-prod:
     build:
@@ -21,5 +39,17 @@ services:
     ports:
       - "8080:8080"
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "8080"]
+      interval: 1m
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    networks:
+      - dungeon-net
     profiles:
       - prod
+
+networks:
+  dungeon-net:
+    driver: bridge

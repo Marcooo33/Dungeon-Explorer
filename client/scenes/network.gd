@@ -6,7 +6,7 @@ var message_sent = false # Flag per evitare di inviare il messaggio a ripetizion
 
 func _ready():
 	print("DEBUG: Lo script di rete è partito!")
-	var socket_connection_status = matchmaker_socket.connect_to_host("127.0.0.1", 8080)
+	var socket_connection_status = matchmaker_socket.connect_to_host("server-dev", 8080)
 	if socket_connection_status == OK:
 		print("Tentativo di connessione al matchmaker in corso...")
 	else:
@@ -33,7 +33,7 @@ func _process(_delta):
 			
 			# Creaiamo la socket per la partita
 			await get_tree().create_timer(2.0).timeout
-			var socket_connection_status = game_socket.connect_to_host("127.0.0.1", game_port)
+			var socket_connection_status = game_socket.connect_to_host("server-dev", game_port)
 			if socket_connection_status == OK:
 				print("Tentativo di connessione alla partita in corso...")
 			else:

@@ -1,0 +1,22 @@
+FROM ubuntu:jammy
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Installazione librerie core di Godot
+RUN apt-get update && apt-get install -y \
+    ca-certificates wget unzip libfontconfig1 libxcursor1 \
+    libxinerama1 libxrandr2 libxi6 libasound2 libpulse0 \
+    libglu1-mesa libxkbcommon0 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Scarica e installa Godot
+RUN wget https://github.com/godotengine/godot/releases/download/4.2.1-stable/Godot_v4.2.1-stable_linux.x86_64.zip \
+    && unzip Godot_v4.2.1-stable_linux.x86_64.zip \
+    && mv Godot_v4.2.1-stable_linux.x86_64 /usr/local/bin/godot \
+    && rm Godot_v4.2.1-stable_linux.x86_64.zip
+
+WORKDIR /workspace/client
+
+EXPOSE 8081
+
+CMD ["godot", "--headless"]
