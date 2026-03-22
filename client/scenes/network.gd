@@ -1,12 +1,14 @@
 extends Node
 
+var SERVER_IP = OS.get_environment("SERVER_IP") if OS.has_environment("SERVER_IP") else "127.0.0.1"
+var SERVER_PORT = OS.get_environment("SERVER_PORT") if OS.has_environment("PORT") else "8080"
 var matchmaker_socket = StreamPeerTCP.new()
 var game_socket = StreamPeerTCP.new()
 var message_sent = false # Flag per evitare di inviare il messaggio a ripetizione
 
 func _ready():
 	print("DEBUG: Lo script di rete è partito!")
-	var socket_connection_status = matchmaker_socket.connect_to_host("server-dev", 8080)
+	var socket_connection_status = matchmaker_socket.connect_to_host(SERVER_IP, SERVER_PORT.to_int())
 	if socket_connection_status == OK:
 		print("Tentativo di connessione al matchmaker in corso...")
 	else:
@@ -33,7 +35,7 @@ func _process(_delta):
 			
 			# Creaiamo la socket per la partita
 			await get_tree().create_timer(2.0).timeout
-			var socket_connection_status = game_socket.connect_to_host("server-dev", game_port)
+			var socket_connection_status = game_socket.connect_to_host(SERVER_IP, game_port)
 			if socket_connection_status == OK:
 				print("Tentativo di connessione alla partita in corso...")
 			else:
