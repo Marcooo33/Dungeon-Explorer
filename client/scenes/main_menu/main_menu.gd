@@ -3,9 +3,6 @@ extends Control
 func _on_createGame_button_pressed() -> void:
 	if NetworkManager.matchmaker_socket.get_status() == StreamPeerTCP.STATUS_CONNECTED:
 		NetworkManager.send_to_matchmaker("CREATE")
-		# Suggerimento: non cambiare scena subito. 
-		# Aspetta che il server ti confermi la creazione!
-		# Puoi farlo collegandoti al segnale 'game_started'
 	else:
 		print("Impossibile creare partita: Matchmaker non connesso.")
 

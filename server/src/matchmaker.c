@@ -3,7 +3,9 @@
 #include <string.h>
 #include <unistd.h>
 #include <arpa/inet.h>
-#include <time.h>
+#include <pthread.h>
+#include <stdbool.h>
+#include <signal.h>
 
 #define PORT 8080
 #define MAX_GAMES 10
@@ -12,74 +14,35 @@ struct Game {
     int port;
     int players;
     char code[8];
+    bool started;
 };
 
+// Global State
 struct Game games[MAX_GAMES];
 int game_count = 0;
+pthread_mutex_t games_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-void generate_code(char *code) {
-    const char charset[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-
-    for (int i = 0; i < 6; i++) {
-        code[i] = charset[rand() % (sizeof(charset) - 1)];
-    }
-
-    code[6] = '\0';
-}
-
-int start_new_game(char *out_code) {
-    int port = 6000 + rand() % 1000;
-
-    pid_t pid = fork();
-
-    if (pid == 0) {
-        char port_str[10];
-        sprintf(port_str, "%d", port);
-
-        execl("./bin/game", "game", port_str, NULL);
-        perror("execl fallita");
-        exit(1);
-
-    } else {
-
-        char code[8];
-        generate_code(code);
-    
-        printf("[MATCHMAKER] Nuova partita %s su porta %d\n", code, port);
-    
-        games[game_count].port = port;
-        games[game_count].players = 0;
-        strcpy(games[game_count].code, code);
-    
-        strcpy(out_code, code);
-    
-        game_count++;
-    
-        return port;
-    }
-
-}
-
-int find_game_by_code(const char *code) {
-    for (int i = 0; i < game_count; i++) {
-        if (strcmp(games[i].code, code) == 0) {
-            return i;
-        }
-    }
-    return -1;
-}
+// Prototipi
+void generate_code(char *code);
+int start_new_game(char *out_code);
+int find_game_by_code(const char *code);
+void *handle_client(void *arg);
 
 int main() {
     srand(time(NULL));
+    
+    // Evita processi zombie dai game server figli
+    signal(SIGCHLD, SIG_IGN);
 
-    int server_fd, new_socket;
+    int server_fd;
     struct sockaddr_in address;
-    int addrlen = sizeof(address);
-    int opt=1;
+    int opt = 1;
 
-    server_fd = socket(AF_INET, SOCK_STREAM, 0);
+    if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
+        perror("Socket fallita");
+        exit(EXIT_FAILURE);
+    }
 
-    // Evita l'errore "Address already in use" al riavvio del server
     setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
 
     address.sin_family = AF_INET;
@@ -91,83 +54,137 @@ int main() {
         exit(EXIT_FAILURE);
     }
 
-    if (listen(server_fd, 5) < 0) {
+    if (listen(server_fd, 10) < 0) {
         perror("Listen fallita");
         exit(EXIT_FAILURE);
     }
 
-    printf("[MATCHMAKER] In ascolto su porta %d...\n", PORT);
+    printf("[MATCHMAKER] Server avviato sulla porta %d...\n", PORT);
 
-    char buffer[1024];
-    
-    while (1) {
-        new_socket = accept(server_fd, NULL, NULL);
-        if (new_socket<0){
-            perror("Errore nell'accettazione del client");
-            exit(EXIT_FAILURE);
-        }
-        printf("[MATCHMAKER] Connessione del client accettata\n");
-
-        memset(buffer, 0, sizeof(buffer));
-        int valread = recv(new_socket, buffer, sizeof(buffer), 0);
+    while (true) {
+        struct sockaddr_in client_addr;
+        socklen_t addr_len = sizeof(client_addr);
+        int new_socket = accept(server_fd, (struct sockaddr *)&client_addr, &addr_len);
         
+        if (new_socket < 0) continue;
 
-        if (valread <= 0) {
+        // ALLOCAZIONE DINAMICA: fondamentale per evitare SegFault tra i thread
+        int *client_sock_ptr = malloc(sizeof(int));
+        *client_sock_ptr = new_socket;
+
+        pthread_t tid;
+        if (pthread_create(&tid, NULL, handle_client, client_sock_ptr) != 0) {
+            fprintf(stderr, "Errore creazione thread\n");
             close(new_socket);
-            continue;
+            free(client_sock_ptr);
         }
-
-        buffer[valread] = '\0';
-        printf("[MATCHMAKER] Ricevuto: %s\n", buffer);
-
-        int port;
-        char code[8] = "";
-
-        // CREATE
-        if (strncmp(buffer, "CREATE", 6) == 0) {
-            port = start_new_game(code);
-
-        }
-        // JOIN <CODE>
-        else if (strncmp(buffer, "JOIN", 4) == 0) {
-            char join_code[8];
-            sscanf(buffer, "JOIN %7s", join_code);
-
-            int idx = find_game_by_code(join_code);
-
-            if (idx == -1) {
-                char *err = "[MATCHMAKER] ERROR: CODE_NOT_FOUND\n";
-                send(new_socket, err, strlen(err), 0);
-                close(new_socket);
-                continue;
-            }
-
-            if (games[idx].players >= 4) {
-                char *err = "[MATCHMAKER] ERROR: FULL\n";
-                send(new_socket, err, strlen(err), 0);
-                close(new_socket);
-                continue;
-            }
-
-            port = games[idx].port;
-            strcpy(code, games[idx].code);
-            games[idx].players++;
-        }
-        else {
-            char *err = "[MATCHMAKER] ERROR: UNKNOWN_COMMAND\n";
-            send(new_socket, err, strlen(err), 0);
-            close(new_socket);
-            continue;
-        }
-
-        // Risposta
-        char msg[64];
-        sprintf(msg, "[MATCHMAKER] START %d %s\n", port, code);
-
-        
-        send(new_socket, msg, strlen(msg), 0);
-        close(new_socket);
+        pthread_detach(tid); 
     }
 
     return 0;
+}
+
+void generate_code(char *code) {
+    const char charset[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    for (int i = 0; i < 6; i++) {
+        code[i] = charset[rand() % (sizeof(charset) - 1)];
+    }
+    code[6] = '\0';
+}
+
+// Funzione chiamata dentro il Mutex nel thread
+int start_new_game(char *out_code) {
+    if (game_count >= MAX_GAMES) return -1;
+
+    int port = 6000 + (rand() % 1000);
+    char code[8];
+    generate_code(code);
+
+    pid_t pid = fork();
+
+    if (pid == 0) {
+        // PROCESSO FIGLIO (Game Server)
+        char port_str[10];
+        sprintf(port_str, "%d", port);
+        
+        printf("[GAME-CHILD] Avvio Game Server su porta %s con codice %s\n", port_str, code);
+        
+        // Esegue il binario del gioco passando porta e codice come argomenti
+        execl("./bin/game", "game", port_str, code, NULL);
+        
+        perror("Errore execl");
+        exit(EXIT_FAILURE);
+    } else if (pid > 0) {
+        // PROCESSO PADRE
+        games[game_count].port = port;
+        games[game_count].players = 1;
+        games[game_count].started = false;
+        strcpy(games[game_count].code, code);
+        strcpy(out_code, code);
+        
+        game_count++;
+        return port;
+    } else {
+        perror("Fork fallita");
+        return -1;
+    }
+}
+
+int find_game_by_code(const char *code) {
+    for (int i = 0; i < game_count; i++) {
+        if (strcmp(games[i].code, code) == 0) return i;
+    }
+    return -1;
+}
+
+void *handle_client(void *arg) {
+    int sock = *(int *)arg;
+    free(arg); // Libero la memoria allocata nel main
+
+    char buffer[1024] = {0};
+    int valread = recv(sock, buffer, sizeof(buffer) - 1, 0);
+
+    if (valread <= 0) {
+        close(sock);
+        return NULL;
+    }
+
+    char response[128];
+    
+    // COMANDO: CREATE
+    if (strncmp(buffer, "CREATE", 6) == 0) {
+        char new_code[8];
+        pthread_mutex_lock(&games_mutex);
+        int port = start_new_game(new_code);
+        pthread_mutex_unlock(&games_mutex);
+
+        if (port != -1) {
+            sprintf(response, "START %d %s\n", port, new_code);
+        } else {
+            sprintf(response, "ERROR: SERVER_FULL\n");
+        }
+    } 
+    // COMANDO: JOIN <code>
+    else if (strncmp(buffer, "JOIN", 4) == 0) {
+        char join_code[8];
+        sscanf(buffer, "JOIN %7s", join_code);
+
+        pthread_mutex_lock(&games_mutex);
+        int idx = find_game_by_code(join_code);
+
+        if (idx != -1 && !games[idx].started && games[idx].players < 4) {
+            games[idx].players++;
+            sprintf(response, "START %d %s\n", games[idx].port, games[idx].code);
+        } else {
+            sprintf(response, "ERROR: NOT_FOUND_OR_FULL\n");
+        }
+        pthread_mutex_unlock(&games_mutex);
+    }
+    else {
+        sprintf(response, "ERROR: INVALID_COMMAND\n");
+    }
+
+    send(sock, response, strlen(response), 0);
+    close(sock); // Importante: il client ora deve connettersi alla porta del gioco
+    return NULL;
 }

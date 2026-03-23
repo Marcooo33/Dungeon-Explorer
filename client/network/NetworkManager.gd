@@ -2,6 +2,7 @@ extends Node
 
 var SERVER_IP = OS.get_environment("SERVER_IP") if OS.has_environment("SERVER_IP") else "127.0.0.1"
 var SERVER_PORT = OS.get_environment("SERVER_PORT") if OS.has_environment("PORT") else "8080"
+var GAME_PORT = 0
 
 var matchmaker_socket = StreamPeerTCP.new()
 var game_socket = StreamPeerTCP.new()
@@ -9,6 +10,7 @@ var game_socket = StreamPeerTCP.new()
 # Segnali per avvisare il resto del gioco quando succede qualcosa
 signal matchmaker_connected
 signal game_started(port)
+signal game_data_received(data)
 
 func _ready():
 	# Connessione automatica all'avvio 
@@ -39,8 +41,15 @@ func _handle_data(source: String, data: String):
 	print("Ricevuto da ", source, ": ", data)
 	
 	if source == "Matchmaker":
-		var game_port = data.get_slice(" ", 2).to_int()
-		connect_to_game_server(game_port)
+		# Esegui il parsing di "START port code"
+		var parts = data.split(" ")
+		if parts.size() >= 2:
+			var game_port = parts[1].to_int()
+			connect_to_game_server(game_port)
+			
+	elif source == "GameServer":
+		# Inoltra i dati al GameManager tramite segnale
+		emit_signal("game_data_received", data)
 
 func send_to_matchmaker(msg: String):
 	if matchmaker_socket.get_status() == StreamPeerTCP.STATUS_CONNECTED:

@@ -3,83 +3,88 @@
 #include <string.h>
 #include <unistd.h>
 #include <arpa/inet.h>
+#include <stdbool.h>
 
 #define MAX_PLAYERS 4
-#define MIN_PLAYERS 2
 
-int clients[MAX_PLAYERS];
-int client_count = 0;
-int game_started = 0;
+struct Player {
+    int socket;
+    int id;
+    int x, y;
+    bool connected;
+};
 
-void broadcast(const char *msg, int sender) {
-    for (int i = 0; i < client_count; i++) {
-        if (i != sender) {
-            send(clients[i], msg, strlen(msg), 0);
+struct Player players[MAX_PLAYERS];
+int connected_count = 0;
+bool game_started = false;
+
+void broadcast(const char *message, int root_id) {
+    for (int i = 0; i < MAX_PLAYERS; i++) {
+        if (players[i].connected && i != root_id) {
+            send(players[i].socket, message, strlen(message), 0);
         }
     }
 }
 
 int main(int argc, char *argv[]) {
-    if (argc < 2) {
-        printf("Uso: %s <porta>\n", argv[0]);
-        return 1;
-    }
+    if (argc < 3) exit(1);
 
     int port = atoi(argv[1]);
+    char *game_code = argv[2];
 
     int server_fd;
     struct sockaddr_in address;
-    int addrlen = sizeof(address);
-
+    
     server_fd = socket(AF_INET, SOCK_STREAM, 0);
+    int opt = 1;
+    setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
 
     address.sin_family = AF_INET;
     address.sin_addr.s_addr = INADDR_ANY;
     address.sin_port = htons(port);
 
     if (bind(server_fd, (struct sockaddr *)&address, sizeof(address)) < 0) {
-        perror("[GAME] Bind fallita\n");
-        exit(EXIT_FAILURE);
+        perror("Bind game fallita");
+        exit(1);
     }
 
-    if (listen(server_fd, 10) < 0) {
-        perror("[GAME] Listen fallita\n");
-        exit(EXIT_FAILURE);
-    }
+    listen(server_fd, MAX_PLAYERS);
+    printf("[GAME %s] In ascolto sulla porta %d\n", game_code, port);
 
-    printf("[GAME] Partita su porta %d\n", port);
+    // Inizializza giocatori
+    for (int i = 0; i < MAX_PLAYERS; i++) players[i].connected = false;
 
-    char buffer[1024];
+    // FASE DI ATTESA: Accettiamo i giocatori (es. aspettiamo che arrivino tutti)
+    while (!game_started) {
+        int new_sock = accept(server_fd, NULL, NULL);
+        
+        players[connected_count].socket = new_sock;
+        players[connected_count].id = connected_count;
+        players[connected_count].x = 0 + (connected_count * 50); // Posizioni diverse
+        players[connected_count].y = 0;
+        players[connected_count].connected = true;
 
-    while (1) {
-        // Accetta nuovi player (non bloccare troppo)
-        if (client_count < MAX_PLAYERS) {
-            int new_socket = accept(server_fd, NULL, NULL);
-            if (new_socket >= 0) {
-                printf("[GAME] Player connesso\n");
-                clients[client_count++] = new_socket;
-
-                if (client_count >= MIN_PLAYERS && !game_started) {
-                    printf("[GAME] Partita iniziata!\n");
-                    game_started = 1;
-                }
-
-            }else{
-                perror("[GAME] Player non connesso\n");
-                exit(EXIT_FAILURE);
-            }
-        }
-
-        // Gestione messaggi
-        for (int i = 0; i < client_count; i++) {
-            int valread = recv(clients[i], buffer, sizeof(buffer), MSG_DONTWAIT);
-
-            if (valread > 0) {
-                buffer[valread] = '\0';
-                broadcast(buffer, i);
+        char spawn_msg[64];
+        sprintf(spawn_msg, "SPAWN %d %d %d\n", players[connected_count].id, players[connected_count].x, players[connected_count].y);
+        send(new_sock, spawn_msg, strlen(spawn_msg), 0);
+        
+        printf("Giocatore %d connesso alla partita %s\n", connected_count, game_code);
+        connected_count++;
+        
+        // Se abbiamo raggiunto il numero, inviamo lo SPAWN a tutti
+        if (connected_count >= 2) {
+            char msg[64];
+            // Invia a tutti la posizione di ogni giocatore connesso
+            for (int i = 0; i < connected_count; i++) {
+                sprintf(msg, "SPAWN %d %d %d\n", players[i].id, players[i].x, players[i].y);
+                broadcast(msg, i);
+                sleep(1); // Piccolo delay per non saturare il buffer socket
             }
         }
     }
+
+    // Qui inizieresti il ciclo dei turni (Ricevi mossa da tutti -> Calcola -> Invia Update)
+    //...
 
     return 0;
 }
