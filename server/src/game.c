@@ -27,22 +27,21 @@ int main(int argc, char *argv[]) {
 
     int port = atoi(argv[1]);
 
-    int server_fd;
+    int game_fd;
     struct sockaddr_in address;
-    int addrlen = sizeof(address);
 
-    server_fd = socket(AF_INET, SOCK_STREAM, 0);
+    game_fd = socket(AF_INET, SOCK_STREAM, 0);
 
     address.sin_family = AF_INET;
     address.sin_addr.s_addr = INADDR_ANY;
     address.sin_port = htons(port);
 
-    if (bind(server_fd, (struct sockaddr *)&address, sizeof(address)) < 0) {
+    if (bind(game_fd, (struct sockaddr *)&address, sizeof(address)) < 0) {
         perror("[GAME] Bind fallita\n");
         exit(EXIT_FAILURE);
     }
 
-    if (listen(server_fd, 10) < 0) {
+    if (listen(game_fd, 10) < 0) {
         perror("[GAME] Listen fallita\n");
         exit(EXIT_FAILURE);
     }
@@ -54,7 +53,7 @@ int main(int argc, char *argv[]) {
     while (1) {
         // Accetta nuovi player (non bloccare troppo)
         if (client_count < MAX_PLAYERS) {
-            int new_socket = accept(server_fd, NULL, NULL);
+            int new_socket = accept(game_fd, NULL, NULL);
             if (new_socket >= 0) {
                 printf("[GAME] Player connesso\n");
                 clients[client_count++] = new_socket;

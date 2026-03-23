@@ -39,7 +39,7 @@ func _handle_data(source: String, data: String):
 	print("Ricevuto da ", source, ": ", data)
 	
 	if source == "Matchmaker":
-		var game_port = data.get_slice(" ", 2).to_int()
+		var game_port = data.get_slice(" ", 1).to_int()
 		connect_to_game_server(game_port)
 
 func send_to_matchmaker(msg: String):
@@ -49,7 +49,10 @@ func send_to_matchmaker(msg: String):
 
 func connect_to_game_server(port: int):
 	print("Connessione al Game Server sulla porta: ", port)
+	await get_tree().create_timer(10000000000)
 	var err = game_socket.connect_to_host(SERVER_IP, port)
 	if err == OK:
 		emit_signal("game_started", port)
+	else:
+		print("Nell'else")
 		
