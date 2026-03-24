@@ -133,6 +133,9 @@ void *handle_client(void *arg) {
 int start_new_game(char *out_code) {
     if (game_count >= MAX_GAMES) return -1;
 
+    int fd[2];
+    if (pipe(fd) == -1) return -1;
+
     int port = 6000 + (rand() % 1000);
     char code[8];
     generate_code(code);
@@ -141,18 +144,23 @@ int start_new_game(char *out_code) {
 
     if (pid == 0) {
         // PROCESSO FIGLIO (Game Server)
+
+        close(fd[0]); // Chiude il lato lettura
         char port_str[10];
+        char pipe_fd_str[10];
         sprintf(port_str, "%d", port);
+        sprintf(pipe_fd_str, "%d", fd[1]);
         
-        printf("[GAME-CHILD] Avvio Game Server su porta %s con codice %s\n", port_str, code);
-        
-        // Esegue il binario del gioco passando porta e codice come argomenti
-        execl("./bin/game", "game", port_str, code, NULL);
-        
-        perror("Errore execl");
+        execl("./bin/game", "game", port_str, code, pipe_fd_str, NULL);
         exit(EXIT_FAILURE);
     } else if (pid > 0) {
         // PROCESSO PADRE
+
+        close(fd[1]); // Chiude il lato scrittura
+        char buffer[3];
+        read(fd[0], buffer, 2); // Padre aspetta qui finché il figlio non scrive sulla pipe
+        close(fd[0]);
+
         games[game_count].port = port;
         games[game_count].players = 1;
         games[game_count].started = false;

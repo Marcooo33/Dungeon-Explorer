@@ -7,34 +7,31 @@ extends Node2D
 var players_nodes = {}
 
 func _ready():
-	# Ci connettiamo al segnale del NetworkManager
+	# Ci connettiamo al nuovo segnale "pulito" del NetworkManager
 	NetworkManager.game_data_received.connect(_on_game_data_received)
-	print("GameManager: Pronto a ricevere dati di gioco")
+	print("GameManager: In ascolto di comandi di gioco pre-elaborati")
 
-func _on_game_data_received(data: String):
-	# Il server C potrebbe inviare più comandi in un unico pacchetto
-	var lines = data.split("\n")
-	for line in lines:
-		var trimmed = line.strip_edges()
-		if trimmed != "":
-			_parse_message(trimmed)
+# Ora riceve CMD (String) e ARGS (Array) invece di una stringa grezza
+func _on_game_data_received(cmd: String, args: Array):
+	match cmd:
+		"SPAWN":
+			if args.size() >= 3:
+				var id = args[0].to_int()
+				var pos = Vector2(args[1].to_float(), args[2].to_float())
+				_handle_spawn(id, pos)
+		
+		"MOVE":
+			if args.size() >= 3:
+				var id = args[0].to_int()
+				var pos = Vector2(args[1].to_float(), args[2].to_float())
+				_update_player_position(id, pos)
+		
+		"REMOVE": # Utile se un giocatore si disconnette
+			if args.size() >= 1:
+				_handle_remove(args[0].to_int())
 
-func _parse_message(msg: String):
-	var parts = msg.split(" ")
-	
-	# Logica SPAWN: "SPAWN ID X Y"
-	if parts[0] == "SPAWN" and parts.size() >= 4:
-		var id = parts[1].to_int()
-		var x = parts[2].to_int()
-		var y = parts[3].to_int()
-		_handle_spawn(id, Vector2(x, y))
-	
-	# Esempio futuro: Logica MOVE per la sincronizzazione
-	elif parts[0] == "MOVE" and parts.size() >= 4:
-		var id = parts[1].to_int()
-		var x = parts[2].to_int()
-		var y = parts[3].to_int()
-		_update_player_position(id, Vector2(x, y))
+
+### LOGICA DI RENDERING
 
 func _handle_spawn(id: int, pos: Vector2):
 	if not players_nodes.has(id):
@@ -42,20 +39,24 @@ func _handle_spawn(id: int, pos: Vector2):
 		new_player.name = "Player_" + str(id)
 		new_player.position = pos
 		
-		# Distinguiamo i giocatori con i colori
-		if id == 0:
-			new_player.modulate = Color.BLUE
-		elif id == 1:
-			new_player.modulate = Color.RED
-		elif id == 2:
-			new_player.modulate = Color.GREEN
-		elif id == 3:
-			new_player.modulate = Color.YELLOW
+		# Assegnazione colori in base all'ID 
+		match id:
+			0: new_player.modulate = Color.BLUE
+			1: new_player.modulate = Color.RED
+			2: new_player.modulate = Color.GREEN
+			3: new_player.modulate = Color.YELLOW
 			
 		add_child(new_player)
 		players_nodes[id] = new_player
-		print("Rendering Giocatore ID: ", id, " in posizione: ", pos)
+		print("Rendering: Creato giocatore %d in %v" % [id, pos])
 
 func _update_player_position(id: int, pos: Vector2):
 	if players_nodes.has(id):
+		# Puoi usare un tween qui se vuoi un movimento fluido invece di un teleport
 		players_nodes[id].position = pos
+
+func _handle_remove(id: int):
+	if players_nodes.has(id):
+		players_nodes[id].queue_free()
+		players_nodes.erase(id)
+		print("Rendering: Rimosso giocatore %d" % id)

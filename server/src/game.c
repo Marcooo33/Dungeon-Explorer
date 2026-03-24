@@ -12,10 +12,11 @@ int connected_count = 0;
 bool game_started = false;
 
 int main(int argc, char *argv[]) {
-    if (argc < 3) exit(1);
+    if (argc < 4) exit(1);
 
     int port = atoi(argv[1]);
     char *game_code = argv[2];
+    int pipe_fd = atoi(argv[3]);
 
     int server_fd;
     struct sockaddr_in address;
@@ -33,13 +34,19 @@ int main(int argc, char *argv[]) {
         exit(1);
     }
 
-    listen(server_fd, MAX_PLAYERS);
+    if (listen(server_fd, MAX_PLAYERS) < 0) {
+        perror("Listen fallita");
+        exit(1);
+    }
+
+    write(pipe_fd, "OK", 2);
+    close(pipe_fd);
     printf("[GAME %s] In ascolto sulla porta %d\n", game_code, port);
 
     // Inizializza giocatori
     for (int i = 0; i < MAX_PLAYERS; i++) players[i].connected = false;
 
-    // FASE DI ATTESA: Accettiamo i giocatori (es. aspettiamo che arrivino tutti)
+    // FASE DI ATTESA: Accettiamo i giocatori
     while (!game_started) {
         int client_socket_fd = accept(server_fd, NULL, NULL);
         

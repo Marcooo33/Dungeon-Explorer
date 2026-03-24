@@ -1,64 +1,32 @@
+# NetworkManager.gd (Autoload)
 extends Node
 
-var SERVER_IP = OS.get_environment("SERVER_IP") if OS.has_environment("SERVER_IP") else "127.0.0.1"
-var SERVER_PORT = OS.get_environment("SERVER_PORT") if OS.has_environment("PORT") else "8080"
-var GAME_PORT = 0
+var matchmaker = MatchmakerSocket.new()
+var game = GameSocket.new()
 
-var matchmaker_socket = StreamPeerTCP.new()
-var game_socket = StreamPeerTCP.new()
-
-# Segnali per avvisare il resto del gioco quando succede qualcosa
-signal matchmaker_connected
-signal game_started(port)
-signal game_data_received(data)
+signal game_found
+signal game_data_received(cmd, args)
 
 func _ready():
-	# Connessione automatica all'avvio 
-	var err = matchmaker_socket.connect_to_host(SERVER_IP, int(SERVER_PORT))
-	if err == OK:
-		print("NetworkManager: Tentativo di connessione al Matchmaker...")
-	else:
-		print("NetworkManager: Errore inizializzazione socket: ", err)
+	game.data_received.connect(_on_game_data_received)
+	matchmaker.connect_to_server()
+	matchmaker.game_found.connect(_on_game_found)
 
 func _process(_delta):
-	_monitor_socket(matchmaker_socket, "Matchmaker")
-	_monitor_socket(game_socket, "GameServer")
+	# Monitoriamo entrambe le socket
+	matchmaker.poll()
+	game.poll()
 
-func _monitor_socket(socket: StreamPeerTCP, label: String):
-	socket.poll()
-	var status = socket.get_status()
+func _on_game_found(port: int, _code: String):
+	print("NetworkManager: Match trovato sulla porta %d. Switch al GameClient." % port)
+	# Chiudiamo il matchmaker e passiamo al game
+	matchmaker.socket.disconnect_from_host()
+	game.connect_to_game(port)
+	game_found.emit()
 	
-	if status == StreamPeerTCP.STATUS_CONNECTED:
-		var available_bytes = socket.get_available_bytes()
-		if available_bytes > 0:
-			var data = socket.get_utf8_string(available_bytes)
-			_handle_data(label, data) # Elaboriamo i dati invece di rispedirli indietro
-	elif status == StreamPeerTCP.STATUS_ERROR:
-		print("ERRORE: Problema con ", label)
+func _on_game_data_received(cmd: String, args: Array):
+	game_data_received.emit(cmd, args)
 
-# Gestione dei messaggi in arrivo
-func _handle_data(source: String, data: String):
-	print("Ricevuto da ", source, ": ", data)
-	
-	if source == "Matchmaker":
-		# Esegui il parsing di "START port code"
-		var parts = data.split(" ")
-		if parts.size() >= 2:
-			var game_port = parts[1].to_int()
-			connect_to_game_server(game_port)
-			
-	elif source == "GameServer":
-		# Inoltra i dati al GameManager tramite segnale
-		emit_signal("game_data_received", data)
-
-func send_to_matchmaker(msg: String):
-	if matchmaker_socket.get_status() == StreamPeerTCP.STATUS_CONNECTED:
-		matchmaker_socket.put_data((msg + "\n").to_utf8_buffer()) # Aggiungi \n per il server
-		print("Inviato: ", msg)
-
-func connect_to_game_server(port: int):
-	print("Connessione al Game Server sulla porta: ", port)
-	var err = game_socket.connect_to_host(SERVER_IP, port)
-	if err == OK:
-		emit_signal("game_started", port)
-		
+# Funzioni helper per il resto del gioco
+func send_to_matchmaker(msg: String): matchmaker.send_command(msg)
+func send_to_game(msg: String): game.send_action(msg)
