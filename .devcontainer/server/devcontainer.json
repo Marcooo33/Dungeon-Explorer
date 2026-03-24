@@ -4,8 +4,6 @@
     "service": "server-dev",
     "workspaceFolder": "/workspace",
     "runServices": ["server-dev"],
-    "initializeCommand": "docker compose down server-dev",
-    "overrideCommand": true,
     "customizations": {
         "vscode": {
             "extensions": [

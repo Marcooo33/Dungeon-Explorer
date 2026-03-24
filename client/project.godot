@@ -19,6 +19,10 @@ config/icon="res://icon.svg"
 
 NetworkManager="*uid://dnq8aytad4rdv"
 
+[display]
+
+window/size/mode=1
+
 [input]
 
 move_up={
