@@ -4,27 +4,12 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <stdbool.h>
+#include "game.h"
+#include "gameUtils.h"
 
-#define MAX_PLAYERS 4
-
-struct Player {
-    int socket;
-    int id;
-    int x, y;
-    bool connected;
-};
-
-struct Player players[MAX_PLAYERS];
+Player players[MAX_PLAYERS];
 int connected_count = 0;
 bool game_started = false;
-
-void broadcast(const char *message, int root_id) {
-    for (int i = 0; i < MAX_PLAYERS; i++) {
-        if (players[i].connected && i != root_id) {
-            send(players[i].socket, message, strlen(message), 0);
-        }
-    }
-}
 
 int main(int argc, char *argv[]) {
     if (argc < 3) exit(1);
@@ -56,9 +41,9 @@ int main(int argc, char *argv[]) {
 
     // FASE DI ATTESA: Accettiamo i giocatori (es. aspettiamo che arrivino tutti)
     while (!game_started) {
-        int new_sock = accept(server_fd, NULL, NULL);
+        int client_socket_fd = accept(server_fd, NULL, NULL);
         
-        players[connected_count].socket = new_sock;
+        players[connected_count].socket = client_socket_fd;
         players[connected_count].id = connected_count;
         players[connected_count].x = 0 + (connected_count * 50); // Posizioni diverse
         players[connected_count].y = 0;
@@ -66,7 +51,7 @@ int main(int argc, char *argv[]) {
 
         char spawn_msg[64];
         sprintf(spawn_msg, "SPAWN %d %d %d\n", players[connected_count].id, players[connected_count].x, players[connected_count].y);
-        send(new_sock, spawn_msg, strlen(spawn_msg), 0);
+        send(client_socket_fd, spawn_msg, strlen(spawn_msg), 0);
         
         printf("Giocatore %d connesso alla partita %s\n", connected_count, game_code);
         connected_count++;

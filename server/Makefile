@@ -1,8 +1,8 @@
 CC=gcc
 CFLAGS=-Wall -Wextra -O2 -I./includes -I../shared -pthread
 
-SRC1=src/matchmaker.c
-SRC2=src/game.c
+SRC1=src/matchmaker.c src/utils/matchmakerUtils.c
+SRC2=src/game.c src/utils/gameUtils.c
 OUT1=matchmaker
 OUT2=game
 
