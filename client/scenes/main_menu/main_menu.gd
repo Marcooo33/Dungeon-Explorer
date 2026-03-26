@@ -1,16 +1,14 @@
 extends Control
 
-func _on_createGame_button_pressed() -> void:
-	if NetworkManager.matchmaker_socket.get_status() == StreamPeerTCP.STATUS_CONNECTED:
-		NetworkManager.send_to_matchmaker("CREATE")
-	else:
-		print("Impossibile creare partita: Matchmaker non connesso.")
-
 func _ready():
 	# Opzionale: connettiti al segnale per cambiare scena solo quando la porta è pronta
-	NetworkManager.connect("game_started", _on_game_ready)
+	NetworkManager.connect("game_found", _on_game_found)
+	
+	
+func _on_createGame_button_pressed() -> void:
+	NetworkManager.send_to_matchmaker("CREATE")
 
-func _on_game_ready(_port):
+func _on_game_found():
 	get_tree().change_scene_to_file("res://scenes/game.tscn")
 	
 func _on_joinGame_button_pressed() -> void:
