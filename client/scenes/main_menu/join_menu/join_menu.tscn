@@ -40,6 +40,15 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_mn2gc")
 
+[node name="ColorRect" type="ColorRect" parent="." unique_id=35519248]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.5037685, 0.5037685, 0.50376844, 1)
+
 [node name="Panel" type="Panel" parent="." unique_id=1452962850]
 layout_mode = 1
 anchors_preset = 15
@@ -61,10 +70,10 @@ offset_bottom = 80.0
 grow_horizontal = 2
 theme_override_colors/font_color = Color(0.14117648, 0.22745098, 0.23529412, 1)
 theme_override_fonts/font = ExtResource("1_6ahre")
-theme_override_font_sizes/font_size = 100
+theme_override_font_sizes/font_size = 75
 text = "Insert game code"
 
-[node name="VBoxContainer" type="VBoxContainer" parent="." unique_id=351110372]
+[node name="VBoxContainer" type="VBoxContainer" parent="Panel" unique_id=351110372]
 layout_mode = 1
 anchors_preset = 8
 anchor_left = 0.5
@@ -79,30 +88,30 @@ grow_horizontal = 2
 grow_vertical = 2
 theme_override_constants/separation = 50
 
-[node name="CodeLineEdit" type="LineEdit" parent="VBoxContainer" unique_id=1087977495]
+[node name="CodeLineEdit" type="LineEdit" parent="Panel/VBoxContainer" unique_id=1087977495]
 layout_mode = 2
 size_flags_vertical = 3
 theme_override_fonts/font = SubResource("FontVariation_c4ob7")
-theme_override_font_sizes/font_size = 70
+theme_override_font_sizes/font_size = 50
 alignment = 1
 max_length = 6
 context_menu_enabled = false
 caret_blink = true
 script = ExtResource("3_c4ob7")
 
-[node name="JoinButton" type="Button" parent="VBoxContainer" unique_id=456174614]
+[node name="JoinButton" type="Button" parent="Panel/VBoxContainer" unique_id=456174614]
 layout_mode = 2
 theme_override_colors/font_color = Color(0, 0, 0, 1)
 theme_override_colors/font_hover_color = Color(0, 0, 0, 0.9254902)
 theme_override_colors/font_hover_pressed_color = Color(1, 1, 1, 1)
 theme_override_colors/font_outline_color = Color(0, 0, 0, 0.59607846)
 theme_override_fonts/font = ExtResource("1_6ahre")
-theme_override_font_sizes/font_size = 60
+theme_override_font_sizes/font_size = 50
 theme_override_styles/normal = SubResource("StyleBoxFlat_mn2gc")
 theme_override_styles/pressed = SubResource("StyleBoxFlat_c4ob7")
 theme_override_styles/hover = SubResource("StyleBoxFlat_ye38i")
 text = "Join"
 metadata/_edit_use_anchors_ = true
 
-[connection signal="text_changed" from="VBoxContainer/CodeLineEdit" to="VBoxContainer/CodeLineEdit" method="_on_text_changed"]
-[connection signal="pressed" from="VBoxContainer/JoinButton" to="." method="_on_join_button_pressed"]
+[connection signal="text_changed" from="Panel/VBoxContainer/CodeLineEdit" to="Panel/VBoxContainer/CodeLineEdit" method="_on_text_changed"]
+[connection signal="pressed" from="Panel/VBoxContainer/JoinButton" to="." method="_on_join_button_pressed"]
