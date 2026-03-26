@@ -3,8 +3,8 @@ class_name MatchmakerSocket
 
 var socket = StreamPeerTCP.new()
 var buffer = ""
-var server_ip = "127.0.0.1"
-var server_port = 8080
+var server_ip = OS.get_environment("SERVER_IP") if OS.has_environment("SERVER_IP") else "127.0.0.1"
+var server_port = OS.get_environment("SERVER_PORT") if OS.has_environment("PORT") else 8080
 
 signal game_found(port, code)
 signal error_received(reason)

@@ -4,7 +4,7 @@ class_name GameSocket
 
 var socket = StreamPeerTCP.new()
 var buffer = ""
-var server_ip = "127.0.0.1"
+var server_ip = OS.get_environment("SERVER_IP") if OS.has_environment("SERVER_IP") else "127.0.0.1"
 
 signal data_received(cmd, args)
 signal connection_established
