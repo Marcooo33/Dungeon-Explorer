@@ -18,10 +18,9 @@ int main(int argc, char *argv[]) {
     char *game_code = argv[2];
     int pipe_fd = atoi(argv[3]);
 
-    int game_fd;
     struct sockaddr_in address;
     
-    server_fd = socket(AF_INET, SOCK_STREAM, 0);
+    int server_fd = socket(AF_INET, SOCK_STREAM, 0);
     int opt = 1;
     setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
 

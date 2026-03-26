@@ -15,7 +15,6 @@
 
 Game games[MAX_GAMES];
 int game_count = 0;
-pthread_mutex_t games_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 // Prototipi
 int start_new_game(char *out_code);
@@ -58,6 +57,7 @@ int main() {
         struct sockaddr_in client_addr;
         socklen_t addr_len = sizeof(client_addr);
         int client_socket_fd = accept(server_fd, (struct sockaddr *)&client_addr, &addr_len);
+        printf("[MATCHMAKER DEBUG] Nuova connessione accettata\n");
         
         if (client_socket_fd < 0) continue;
 
@@ -77,8 +77,8 @@ int main() {
     return 0;
 }
 
-
-void *handle_client(void *arg) {
+void *handle_client(void *arg){
+    printf("[MATCHMAKER DEBUG] Gestione client\n");
     int client_socket_fd = *(int *)arg;
     free(arg); // Libero la memoria allocata nel main
 
@@ -90,88 +90,27 @@ void *handle_client(void *arg) {
         return NULL;
     }
 
-    char server_response[128];
-    
     // COMANDO: CREATE
     if (strncmp(client_response, "CREATE", 6) == 0) {
-        char new_code[8];
+        printf("[MATCHMAKER DEBUG] Comando CREATE ricevuto\n");
         pthread_mutex_lock(&games_mutex);
-        int port = start_new_game(new_code);
-        pthread_mutex_unlock(&games_mutex);
-
-        if (port != -1) {
-            sprintf(server_response, "START %d %s\n", port, new_code);
-        } else {
-            sprintf(server_response, "ERROR: SERVER_FULL\n");
-        }
-    } 
-    // COMANDO: JOIN <code>
-    else if (strncmp(client_response, "JOIN", 4) == 0) {
-        char join_code[8];
-        sscanf(client_response, "JOIN %7s", join_code);
-
-        pthread_mutex_lock(&games_mutex);
-        int idx = find_game_by_code(join_code);
-
-        if (idx != -1 && !games[idx].started && games[idx].players < 4) {
-            games[idx].players++;
-            sprintf(server_response, "START %d %s\n", games[idx].port, games[idx].code);
-        } else {
-            sprintf(server_response, "ERROR: NOT_FOUND_OR_FULL\n");
-        }
-        pthread_mutex_unlock(&games_mutex);
-    }
-    else {
-        sprintf(server_response, "ERROR: INVALID_COMMAND\n");
-    }
-
-    send(client_socket_fd, server_response, strlen(server_response), 0);
-    close(client_socket_fd); // Importante: il client ora deve connettersi alla porta del gioco
-    return NULL;
-}
-
-// Funzione chiamata dentro il Mutex nel thread
-int start_new_game(char *out_code) {
-    if (game_count >= MAX_GAMES) return -1;
-
-    int fd[2];
-    if (pipe(fd) == -1) return -1;
-
-    int port = 6000 + (rand() % 1000);
-    char code[8];
-    generate_code(code);
-
-    pid_t pid = fork();
-
-    if (pid == 0) {
-        // PROCESSO FIGLIO (Game Server)
-
-        close(fd[0]); // Chiude il lato lettura
-        char port_str[10];
-        char pipe_fd_str[10];
-        sprintf(port_str, "%d", port);
-        sprintf(pipe_fd_str, "%d", fd[1]);
         
-        execl("./bin/game", "game", port_str, code, pipe_fd_str, NULL);
-        exit(EXIT_FAILURE);
-    } else if (pid > 0) {
-        // PROCESSO PADRE
-
-        close(fd[1]); // Chiude il lato scrittura
-        char buffer[3];
-        read(fd[0], buffer, 2); // Padre aspetta qui finché il figlio non scrive sulla pipe
-        close(fd[0]);
-
-        games[game_count].port = port;
-        games[game_count].players = 1;
-        games[game_count].started = false;
-        strcpy(games[game_count].code, code);
-        strcpy(out_code, code);
-        
+        generate_code(games[game_count].code);
+        games[game_count].num_players = 1;
+        Player host = games[game_count].players[0];
+        host.socket_fd = client_socket_fd;
+        host.status = CONNECTED;
+        int game_idx = game_count;
         game_count++;
-        return port;
-    } else {
-        perror("Fork fallita");
-        return -1;
-    }
+        
+        pthread_mutex_unlock(&games_mutex);
+        
+        handle_host_loop(game_idx);
+    } 
+
+    // else if Join
+     while (1) {
+        /* code */
+     }
+    
 }

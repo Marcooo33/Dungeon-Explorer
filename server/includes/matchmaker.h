@@ -4,13 +4,27 @@
 #include <stdbool.h>
 
 #define MAX_GAMES 10
+#define MAX_PLAYERS 4
+
+typedef enum {
+    DISCONNECTED,
+    PENDING,
+    CONNECTED,
+} Status;
 
 typedef struct {
-int port;
-int players;
-char code[8];
-bool started;
+    int socket_fd;
+    Status status;
+} Player;
+
+typedef struct {
+    int port;
+    char code[8];
+    Player players[MAX_PLAYERS];
+    int num_players;
+    bool started;
 } Game;
+
 
 extern Game games[MAX_GAMES];
 extern int game_count;
