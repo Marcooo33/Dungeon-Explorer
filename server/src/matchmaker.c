@@ -57,7 +57,6 @@ int main() {
         struct sockaddr_in client_addr;
         socklen_t addr_len = sizeof(client_addr);
         int client_socket_fd = accept(server_fd, (struct sockaddr *)&client_addr, &addr_len);
-        printf("[MATCHMAKER DEBUG] Nuova connessione accettata\n");
         
         if (client_socket_fd < 0) continue;
 
@@ -78,12 +77,11 @@ int main() {
 }
 
 void *handle_client(void *arg){
-    printf("[MATCHMAKER DEBUG] Gestione client\n");
     int client_socket_fd = *(int *)arg;
     free(arg); // Libero la memoria allocata nel main
 
     char client_response[1024] = {0};
-    int valread = recv(client_socket_fd, client_response, sizeof(client_response) - 1, 0);
+    int valread = recv(client_socket_fd, client_response, sizeof(client_response) - 1, MSG_PEEK);
 
     if (valread <= 0) {
         close(client_socket_fd);
@@ -93,13 +91,14 @@ void *handle_client(void *arg){
     // COMANDO: CREATE
     if (strncmp(client_response, "CREATE", 6) == 0) {
         printf("[MATCHMAKER DEBUG] Comando CREATE ricevuto\n");
+        recv(client_socket_fd, client_response, 7, 0); // Rimuove "CREATE" dal buffer
         pthread_mutex_lock(&games_mutex);
         
         generate_code(games[game_count].code);
         games[game_count].num_players = 1;
-        Player host = games[game_count].players[0];
-        host.socket_fd = client_socket_fd;
-        host.status = CONNECTED;
+        Player* host = &games[game_count].players[0];
+        host->socket_fd = client_socket_fd;
+        host->status = CONNECTED;
         int game_idx = game_count;
         game_count++;
         
@@ -108,9 +107,16 @@ void *handle_client(void *arg){
         handle_host_loop(game_idx);
     } 
 
-    // else if Join
-     while (1) {
-        /* code */
-     }
-    
+    // COMANDO: JOIN
+    else if (strncmp(client_response, "JOIN", 4) == 0) {
+        printf("[MATCHMAKER DEBUG] Comando JOIN ricevuto: %s\n", client_response);
+        handle_join(client_socket_fd);
+    }
+
+    else{
+        printf("[MATCHMAKER] Comando sconosciuto: %s\n", client_response);
+        close(client_socket_fd);
+    }
+
+    return NULL;
 }

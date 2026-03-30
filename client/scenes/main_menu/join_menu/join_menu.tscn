@@ -49,6 +49,33 @@ grow_horizontal = 2
 grow_vertical = 2
 color = Color(0.5037685, 0.5037685, 0.50376844, 1)
 
+[node name="WaitingOverlay" type="ColorRect" parent="." unique_id=1958465809]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 0.5882353)
+
+[node name="Label" type="Label" parent="WaitingOverlay" unique_id=1475982428]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -457.0
+offset_top = -123.0
+offset_right = 457.0
+offset_bottom = -71.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_fonts/font = ExtResource("1_6ahre")
+theme_override_font_sizes/font_size = 55
+text = "Waiting for the host to accept the request..."
+
 [node name="Panel" type="Panel" parent="." unique_id=1452962850]
 layout_mode = 1
 anchors_preset = 15
@@ -112,6 +139,10 @@ theme_override_styles/pressed = SubResource("StyleBoxFlat_c4ob7")
 theme_override_styles/hover = SubResource("StyleBoxFlat_ye38i")
 text = "Join"
 metadata/_edit_use_anchors_ = true
+
+[node name="ErrorDialog" type="AcceptDialog" parent="." unique_id=318440593]
+title = "Error"
+dialog_text = "Host rejected your request"
 
 [connection signal="text_changed" from="Panel/VBoxContainer/CodeLineEdit" to="Panel/VBoxContainer/CodeLineEdit" method="_on_text_changed"]
 [connection signal="pressed" from="Panel/VBoxContainer/JoinButton" to="." method="_on_join_button_pressed"]

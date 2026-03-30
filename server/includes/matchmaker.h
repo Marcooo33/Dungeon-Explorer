@@ -19,7 +19,7 @@ typedef struct {
 
 typedef struct {
     int port;
-    char code[8];
+    char code[7];
     Player players[MAX_PLAYERS];
     int num_players;
     bool started;
