@@ -4,6 +4,8 @@
 #include <sys/socket.h>
 #include <unistd.h>
 #include <poll.h>
+#include <spawn.h>
+#include <fcntl.h>
 
 #include "matchmaker.h"
 #include "matchmakerUtils.h"
@@ -46,8 +48,7 @@ void handle_host_loop(int game_idx) {
 
         buffer[valread] = '\0';
         printf("[MATCHMAKER DEBUG] Comando ricevuto dall'host: %s\n", buffer);
-        pthread_mutex_lock(&games_mutex);
-
+        
         // GESTIONE DEL TCP FRAMING: Dividiamo il buffer usando '\n' come separatore
         char *command = strtok(buffer, "\n");
         
@@ -57,8 +58,16 @@ void handle_host_loop(int game_idx) {
                 int player_index;
                 if (sscanf(command, "ACCEPT %d", &player_index) == 1 && player_index > 0 && player_index < MAX_PLAYERS) {
                     if (games[game_idx].players[player_index].status == PENDING) {
+                        
+                        // Sezione critica
+                        pthread_mutex_lock(&games_mutex);
+                        
                         games[game_idx].players[player_index].status = CONNECTED;
                         games[game_idx].num_players++;
+
+                        pthread_mutex_unlock(&games_mutex);
+                        // Fine sezione critica
+
                         printf("[MATCHMAKER] Giocatore %d accettato nella partita %s\n", player_index, games[game_idx].code);
                         
                         Player* accepted_player = &games[game_idx].players[player_index];
@@ -71,7 +80,15 @@ void handle_host_loop(int game_idx) {
                 int player_index;
                 if (sscanf(command, "REJECT %d", &player_index) == 1 && player_index > 0 && player_index < MAX_PLAYERS) {
                     if (games[game_idx].players[player_index].status == PENDING) {
+
+                        // Sezione critica
+                        pthread_mutex_lock(&games_mutex);
+
                         games[game_idx].players[player_index].status = DISCONNECTED;
+
+                        pthread_mutex_unlock(&games_mutex);
+                        // Fine sezione critica
+
                         printf("[MATCHMAKER] Giocatore %d rifiutato nella partita %s\n", player_index, games[game_idx].code);
                         
                         // NOTA: Qui dovresti notificare al socket del client che è stato rifiutato
@@ -83,8 +100,19 @@ void handle_host_loop(int game_idx) {
             // Se l'host invia "START_GAME"
             else if (strncmp(command, "START_GAME", 10) == 0) {
                 if (games[game_idx].num_players >= 2) {
+
+                    // Sezione critica
+                    pthread_mutex_lock(&games_mutex);
+
                     games[game_idx].started = true;
-                    printf("[MATCHMAKER] Partita %s avviata!\n", games[game_idx].code);
+
+                    pthread_mutex_unlock(&games_mutex);
+                    // Fine sezione critica
+
+                    printf("[MATCHMAKER] Richiesta di inzio per la partita %s\n", games[game_idx].code);
+                    start_game(game_idx);
+                    return;
+                    
                 } else {
                     send(host->socket_fd, "ERROR MIN_PLAYERS_NOT_MET\n", 27, 0);
                 }
@@ -94,7 +122,6 @@ void handle_host_loop(int game_idx) {
             command = strtok(NULL, "\n");
         }
 
-        pthread_mutex_unlock(&games_mutex);
         print_info_game(game_idx);
     }
 }
@@ -208,4 +235,67 @@ void print_info_game(int game_idx) {
         printf("Giocatore %d: %d\n", i, game.players[i].status);
     }    
     printf("=====================\n");
+}
+
+void start_game(int game_idx){
+    Game *game = &games[game_idx];
+    pid_t pid;
+
+    posix_spawn_file_actions_t actions;
+    posix_spawn_file_actions_init(&actions);
+
+    // 🔹 Assicuriamoci che le socket NON vengano chiuse su exec
+    for (int i = 0; i < MAX_PLAYERS; i++) {
+        if (game->players[i].status == CONNECTED) {
+            int fd = game->players[i].socket_fd;
+
+            int flags = fcntl(fd, F_GETFD);
+            flags &= ~FD_CLOEXEC;
+            fcntl(fd, F_SETFD, flags);
+        }
+    }
+
+    // 🔹 Costruzione stringa FD
+    char fd_args[256] = {0};
+    char temp[32];
+
+    for (int i = 0; i < MAX_PLAYERS; i++) {
+        if (game->players[i].status == CONNECTED) {
+            sprintf(temp, "%d ", game->players[i].socket_fd);
+            strcat(fd_args, temp);
+        }
+    }
+
+    char *argv[] = {
+        "game_server",
+        game->code,
+        fd_args,
+        NULL
+    };
+
+    int status = posix_spawn(
+        &pid,
+        "/workspace/server/bin/game",
+        &actions,
+        NULL,
+        argv,
+        environ
+    );
+
+    posix_spawn_file_actions_destroy(&actions);
+
+    if (status == 0) {
+        printf("[MATCHMAKER] Game server avviato (pid=%d) per partita %s\n",
+               pid, game->code);
+
+        // 🔴 IMPORTANTISSIMO: chiudi le socket nel matchmaker
+        for (int i = 0; i < MAX_PLAYERS; i++) {
+            if (game->players[i].status == CONNECTED) {
+                close(game->players[i].socket_fd);
+                game->players[i].status = DISCONNECTED;
+            }
+        }
+    } else {
+        perror("posix_spawn fallita");
+    }
 }

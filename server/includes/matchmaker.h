@@ -18,7 +18,6 @@ typedef struct {
 } Player;
 
 typedef struct {
-    int port;
     char code[7];
     Player players[MAX_PLAYERS];
     int num_players;
@@ -28,5 +27,6 @@ typedef struct {
 
 extern Game games[MAX_GAMES];
 extern int game_count;
+extern char **environ;
 
 #endif

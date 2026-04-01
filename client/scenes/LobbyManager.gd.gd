@@ -1,6 +1,7 @@
 extends Node2D # o Control, a seconda di cos'è la root della tua scena Game/Lobby
 
 @onready var join_dialog = $JoinRequestDialog 
+@onready var start_button = $StartButton
 
 # Questa è la nostra coda: un array che terrà a memoria chi ha bussato
 var join_queue : Array[int] = [] 
@@ -15,7 +16,10 @@ func _ready():
 	
 	# Assicuriamoci che il popup sia invisibile all'avvio
 	join_dialog.hide()
-
+	
+	# logica per bottone di inizio partita
+	start_button.pressed.connect(_on_start_pressed)
+	
 # Quando il server C ci dice "Il giocatore X vuole entrare"
 func _on_join_request_received(player_id: int):
 	print("HOST UI: Ricevuta richiesta per il player ", player_id)
@@ -50,3 +54,7 @@ func _on_reject_pressed():
 		print("HOST UI: Rifiutato giocatore ", current_player_id)
 		NetworkManager.send_to_matchmaker("REJECT " + str(current_player_id))
 		call_deferred("_show_next_request")
+
+func _on_start_pressed():
+	print("HOST UI: Avvio partita richiesto")
+	NetworkManager.send_to_matchmaker("START_GAME")

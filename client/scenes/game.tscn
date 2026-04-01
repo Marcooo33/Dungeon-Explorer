@@ -26,3 +26,9 @@ size = Vector2i(233, 100)
 ok_button_text = "Accept"
 dialog_text = "A new player wants to join"
 cancel_button_text = "Decline"
+
+[node name="StartButton" type="Button" parent="." unique_id=1091683554]
+offset_left = 317.0
+offset_top = -31.0
+offset_right = 413.0
+text = "Start Game"
