@@ -1,37 +1,70 @@
-# NetworkManager.gd (Autoload)
 extends Node
 
-var matchmaker = MatchmakerSocket.new()
-var game = GameSocket.new()
+enum State {
+	LOBBY,
+	GAME
+}
+
+var state := State.LOBBY
+
+var client := NetworkSocket.new()
+
+# ---------------- SIGNALS ----------------
 
 signal game_found
 signal game_data_received(cmd, args)
-signal join_request_received(player_id) 
+signal join_request_received(player_id)
 signal join_accepted
 signal join_rejected
 signal error_received(msg: String)
 
-
 func _ready():
-	game.data_received.connect(_on_game_data_received)
-	matchmaker.connect_to_server()
-	matchmaker.join_request_received.connect(func(id): join_request_received.emit(id))
-	matchmaker.join_accepted.connect(func(): join_accepted.emit())
-	matchmaker.join_rejected.connect(func(): join_rejected.emit())
-	matchmaker.error_received.connect(func(msg): error_received.emit(msg))
+	connect_to_server()
+	client.raw_packet.connect(_on_raw_packet)
 
 func _process(_delta):
-	matchmaker.poll()
-	game.poll()
+	client.poll()
 
-func _on_join_game(port: int, _code: String):
-	print("NetworkManager: Match trovato sulla porta %d. Switch al GameClient." % port)
-	matchmaker.socket.disconnect_from_host()
-	game.connect_to_game(port)
-	game_found.emit()
-	
-func _on_game_data_received(cmd: String, args: Array):
+# ---------------- API PUBBLICA ----------------
+
+func connect_to_server():
+	client.connect_to_server()
+
+func send_to_server(msg: String):
+	client.send(msg)
+
+# ---------------- DISPATCH ----------------
+
+func _on_raw_packet(cmd: String, args: Array):
+	match state:
+		State.LOBBY:
+			_handle_lobby(cmd, args)
+		State.GAME:
+			_handle_game(cmd, args)
+
+# ---------------- LOBBY ----------------
+
+func _handle_lobby(cmd: String, args: Array):
+	match cmd:
+		"JOIN_REQUEST":
+			if args.size() >= 1:
+				join_request_received.emit(args[0].to_int())
+
+		"JOIN_ACCEPTED":
+			join_accepted.emit()
+
+		"JOIN_REJECTED":
+			join_rejected.emit()
+
+		"ERROR":
+			error_received.emit(" ".join(args))
+
+		"START_GAME":
+			state = State.GAME
+			game_found.emit()
+
+# ---------------- GAME ----------------
+
+func _handle_game(cmd: String, args: Array):
+	print("Sending to GameManager: ", cmd, " ", args)
 	game_data_received.emit(cmd, args)
-
-func send_to_matchmaker(msg: String): matchmaker.send_command(msg)
-func send_to_game(msg: String): game.send_action(msg)

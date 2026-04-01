@@ -28,5 +28,11 @@ int main(int argc, char *argv[]) {
     }
 
     printf("[GAME %s] Ricevuti %d socket\n", game_code, connected_count);
-    broadcast("START\n");
+    broadcast("START_GAME\n");
+
+    char message[32];
+    for (int i=0; i<connected_count; i++){
+        sprintf(message, "SPAWN %d %d 0\n", i, i*50);
+        broadcast(message);
+    }
 }

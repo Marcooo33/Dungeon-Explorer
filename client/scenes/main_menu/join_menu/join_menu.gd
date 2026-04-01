@@ -20,7 +20,7 @@ func _on_join_button_pressed():
 		panel.visible = false
 		waiting_overlay.visible = true
 		
-		NetworkManager.send_to_matchmaker("JOIN " + code)
+		NetworkManager.send_to_server("JOIN " + code)
 
 func _on_error_received(msg: String):
 	print("UI: Ricevuto errore dal server -> ", msg)
@@ -48,7 +48,7 @@ func _on_error_received(msg: String):
 
 func _on_join_accepted():
 	# Successo: il cambio scena è già gestito qui
-	get_tree().change_scene_to_file("res://scenes/game.tscn")
+	get_tree().change_scene_to_file("res://scenes/rooms/lobby/Lobby.tscn")
 
 func _on_join_rejected():
 	# L'host ha cliccato "Rifiuta"
