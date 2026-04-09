@@ -1,7 +1,7 @@
 [gd_scene format=4 uid="uid://bj8687ybo8yhn"]
 
-[ext_resource type="Script" uid="uid://bplaxi4pxp5gm" path="res://scenes/rooms/lobby/LobbyManager.gd.gd" id="1_n4a6i"]
-[ext_resource type="PackedScene" uid="uid://dcyh5g2cw53ky" path="res://scenes/rooms/lobby/Lobby_background.tscn" id="2_ndpok"]
+[ext_resource type="Script" uid="uid://bplaxi4pxp5gm" path="res://scenes/lobby/LobbyManager.gd.gd" id="1_n4a6i"]
+[ext_resource type="PackedScene" uid="uid://dcyh5g2cw53ky" path="res://scenes/lobby/Lobby_background.tscn" id="2_ndpok"]
 [ext_resource type="Script" uid="uid://dmfkkrlkgd1oj" path="res://scenes/camera_2d.gd" id="3_7dxqh"]
 
 [node name="Lobby" type="Node2D" unique_id=1110511085]
