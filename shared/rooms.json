@@ -1,0 +1,29 @@
+{
+  "rooms": [
+    {
+      "id": "starting_room",
+      "type": "start",
+      "doors": ["E"]
+    },
+    {
+      "id": "room_1",
+      "type": "battle",
+      "doors": ["N", "S", "W", "E"]
+    },
+    {
+      "id": "room_2",
+      "type": "treasure",
+      "doors": ["N", "S", "W"]
+    },
+    {
+      "id": "room_3",
+      "type": "trap",
+      "doors": ["N", "E"]
+    },
+    {
+      "id": "room_4",
+      "type": "boss",
+      "doors": ["E"]
+    }
+  ]
+}
