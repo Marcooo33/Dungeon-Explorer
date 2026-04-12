@@ -14,6 +14,7 @@ typedef enum {
 
 typedef struct {
     int socket_fd;
+    int id;
     Status status;
 } Player;
 

@@ -8,7 +8,9 @@
 typedef struct {
     int socket_fd;
     int id;
-    int x, y;
+    int x,y;
+    int hp;
+    bool alive;
 } Player;
 
 extern Player players[MAX_PLAYERS];
