@@ -48,7 +48,7 @@ func _on_error_received(msg: String):
 
 func _on_join_accepted():
 	# Successo: il cambio scena è già gestito qui
-	get_tree().change_scene_to_file("res://scenes/rooms/lobby/Lobby.tscn")
+	get_tree().change_scene_to_file("res://scenes/lobby/Lobby.tscn")
 
 func _on_join_rejected():
 	# L'host ha cliccato "Rifiuta"

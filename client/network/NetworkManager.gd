@@ -61,6 +61,7 @@ func _handle_lobby(cmd: String, args: Array):
 
 		"START_GAME":
 			state = State.GAME
+			get_tree().change_scene_to_file("res://scenes/dungeon/rooms/starting_room/starting_room.tscn")
 			game_found.emit()
 
 # ---------------- GAME ----------------
