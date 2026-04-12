@@ -61,7 +61,7 @@ void handle_host_loop(int game_idx) {
                         
                         // Sezione critica
                         pthread_mutex_lock(&games_mutex);
-                        
+                        games[game_idx].players[player_index].id = player_index;
                         games[game_idx].players[player_index].status = CONNECTED;
                         games[game_idx].num_players++;
 
@@ -232,7 +232,7 @@ void print_info_game(int game_idx) {
     printf("Stato: %s\n", game.started ? "Avviata" : "In attesa");
     
     for (int i = 0; i < MAX_PLAYERS; i++) {
-        printf("Giocatore %d: %d\n", i, game.players[i].status);
+        printf("Giocatore %d: Socket_FD=%d, Status=%d\n", i, game.players[i].socket_fd, game.players[i].status);
     }    
     printf("=====================\n");
 }
@@ -255,21 +255,29 @@ void start_game(int game_idx){
         }
     }
 
-    // 🔹 Costruzione stringa FD
-    char fd_args[256] = {0};
+    // 🔹 Costruzione stringhe separate per Sockets e IDs
+    char sockets_args[256] = {0};
+    char ids_args[256] = {0};
     char temp[32];
 
     for (int i = 0; i < MAX_PLAYERS; i++) {
         if (game->players[i].status == CONNECTED) {
+            // Aggiungiamo il socket_fd alla stringa dei socket
             sprintf(temp, "%d ", game->players[i].socket_fd);
-            strcat(fd_args, temp);
+            strcat(sockets_args, temp);
+
+            // Aggiungiamo l'id del giocatore alla stringa degli ID
+            sprintf(temp, "%d ", game->players[i].id);
+            strcat(ids_args, temp);
         }
     }
 
+    // Passiamo le due stringhe come parametri distinti
     char *argv[] = {
         "game_server",
-        game->code,
-        fd_args,
+        game->code,     // argv[1]: Codice partita
+        sockets_args,   // argv[2]: Stringa dei socket fd
+        ids_args,       // argv[3]: Stringa degli ID dei giocatori
         NULL
     };
 
