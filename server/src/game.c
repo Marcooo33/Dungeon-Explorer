@@ -35,4 +35,5 @@ int main(int argc, char *argv[]) {
         sprintf(message, "SPAWN %d %d 0\n", i, i*50);
         broadcast(message);
     }
+
 }

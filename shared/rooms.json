@@ -1,5 +1,5 @@
 {
-  "rooms": [
+  "allrooms": [
     {
       "id": "starting_room",
       "type": "start",
@@ -23,6 +23,26 @@
     {
       "id": "room_4",
       "type": "boss",
+      "doors": ["W"]
+    },
+    {
+      "id": "dead_end_1",
+      "type": "dead_end",
+      "doors": ["N"]
+    },
+    {
+      "id": "dead_end_2",
+      "type": "dead_end",
+      "doors": ["S"]
+    },
+    {
+      "id": "dead_end_3",
+      "type": "dead_end",
+      "doors": ["W"]
+    },
+    {
+      "id": "dead_end_4",
+      "type": "dead_end",
       "doors": ["E"]
     }
   ]
