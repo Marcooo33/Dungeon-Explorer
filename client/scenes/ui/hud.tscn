@@ -1,0 +1,38 @@
+[gd_scene format=3 uid="uid://br63kqq0tdjyn"]
+
+[ext_resource type="Script" uid="uid://b47d604cxb8ex" path="res://scenes/ui/hud.gd" id="1_0mwgc"]
+
+[node name="Hud" type="CanvasLayer" unique_id=117921570]
+script = ExtResource("1_0mwgc")
+
+[node name="Control" type="Control" parent="." unique_id=1070369210]
+layout_mode = 3
+anchors_preset = 10
+anchor_right = 1.0
+grow_horizontal = 2
+
+[node name="MarginContainer" type="MarginContainer" parent="Control" unique_id=1686147998]
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_bottom = 63.0
+grow_horizontal = 2
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 20
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 20
+
+[node name="HBoxContainer" type="HBoxContainer" parent="Control/MarginContainer" unique_id=685330440]
+layout_mode = 2
+
+[node name="MyInfoLabel" type="Label" parent="Control/MarginContainer/HBoxContainer" unique_id=886011692]
+layout_mode = 2
+size_flags_horizontal = 0
+
+[node name="Control" type="Control" parent="Control/MarginContainer/HBoxContainer" unique_id=1528306953]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="OthersContainer" type="VBoxContainer" parent="Control/MarginContainer/HBoxContainer" unique_id=955176564]
+layout_mode = 2
+size_flags_horizontal = 8

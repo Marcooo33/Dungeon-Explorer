@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://o02uktcrbgr1"]
 
-[ext_resource type="FontFile" uid="uid://bddg2pa2n2t0j" path="res://scenes/main_menu/GrapeSoda.ttf" id="1_6ahre"]
+[ext_resource type="FontFile" uid="uid://bddg2pa2n2t0j" path="res://assets/fonts/GrapeSoda.ttf" id="1_6ahre"]
 [ext_resource type="Script" uid="uid://dkcmxshe1fdt8" path="res://scenes/main_menu/join_menu/join_menu.gd" id="1_mn2gc"]
 [ext_resource type="Script" uid="uid://cpqeg56vnhlem" path="res://scenes/main_menu/join_menu/code_line_edit.gd" id="3_c4ob7"]
 

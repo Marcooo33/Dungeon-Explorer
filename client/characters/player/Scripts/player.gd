@@ -2,6 +2,7 @@ class_name Player extends CharacterBody2D
 
 var cardinal_direction : Vector2 = Vector2.DOWN
 var direction : Vector2 = Vector2.ZERO
+var hp : int = 100
 
 @onready var animation_player : AnimationPlayer = $AnimationPlayer
 @onready var sprite_2d : Sprite2D = $Sprite2D
@@ -18,7 +19,7 @@ func _process(_delta: float) -> void:
 	).normalized()
 
 
-func _physics_process( delta ):
+func _physics_process( _delta ):
 	move_and_slide()
 	
 

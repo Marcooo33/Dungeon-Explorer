@@ -16,6 +16,8 @@ void init_players() {
     for (int i = 0; i < connected_count; i++) {
         players[i].hp = 100;
         players[i].alive = true;
+        players[i].x = 0; // Posizione iniziale X
+        players[i].y = i * 50; // Posizione iniziale Y
     }
 }
 
@@ -53,6 +55,7 @@ int main(int argc, char *argv[]) {
 
     printf("[GAME %s] Ricevuti %d socket\n", game_code, connected_count);
     broadcast("START_GAME\n");
+    sleep(3);
 
     // Inviamo a ciascun client il proprio ID
     char specific_client_msg[64];
@@ -61,19 +64,19 @@ int main(int argc, char *argv[]) {
         send(players[i].socket_fd, specific_client_msg, strlen(specific_client_msg), 0);
     }
 
+    init_players();
+
     char player_info_message[128];
     for (int i = 0; i < connected_count; i++) {
-        sprintf(player_info_message, "PLAYER_INFO %d %d %d %d\n", players[i].id, players[i].hp, players[i].x, players[i].y);
+        sprintf(player_info_message, "PLAYER_INFO %d %d %d %d\n", 
+                players[i].id, 
+                players[i].hp, 
+                (int)players[i].x, 
+                (int)players[i].y);
+                
         broadcast(player_info_message);
     }
 
-    char spawn_msg[32];
-    for (int i=0; i<connected_count; i++){
-        sprintf(spawn_msg, "SPAWN %d %d 0\n", i, i*50);
-        broadcast(spawn_msg);
-    }
-
-    init_players();
 
     // Debug: stampa info giocatori
     printf("[DEBUG] Connessi %d giocatori\n", connected_count);

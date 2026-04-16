@@ -159,3 +159,9 @@ script = ExtResource("4_5dc8e")
 
 [node name="Walk" type="Node2D" parent="StateMachine" unique_id=1061239001]
 script = ExtResource("5_ixbpm")
+
+[node name="MyPlayerIndicator" type="Polygon2D" parent="." unique_id=102854569]
+visible = false
+position = Vector2(2.2737368e-13, -17)
+scale = Vector2(0.4117647, 0.54545456)
+polygon = PackedVector2Array(0, 1, -8, -10, -7, -10, 9, -10, 9, -10)
