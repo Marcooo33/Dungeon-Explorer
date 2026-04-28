@@ -23,7 +23,7 @@ theme_override_constants/margin_top = 20
 theme_override_constants/margin_right = 20
 theme_override_constants/margin_bottom = 20
 
-[node name="RoomsContainer" type="HBoxContainer" parent="BottomPanel/MarginContainer" unique_id=493809472]
+[node name="RoomButtonsContainer" type="HBoxContainer" parent="BottomPanel/MarginContainer" unique_id=493809472]
 layout_mode = 2
 size_flags_horizontal = 4
 theme_override_constants/separation = 50

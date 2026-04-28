@@ -114,6 +114,7 @@ int main(int argc, char *argv[]) {
         }
         sprintf(room_info_msg + strlen(room_info_msg), "\n"); // Aggiungi newline alla fine del messaggio
         broadcast(room_info_msg);
+        
 
         // 3) ricevere la decisione
         int votes[4] = {0}; // NORTH, SOUTH, EAST, WEST

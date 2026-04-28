@@ -52,7 +52,6 @@ func _on_game_data_received(cmd: String, args: Array):
 				
 		"MAKE_DECISION":
 			if args.size() > 0:
-				print("[DEBUG] comando 'make_decision' arrivato")
 				_handle_make_decision(args)
 				
 	# Aggiorna l'interfaccia ad ogni pacchetto ricevuto
@@ -117,8 +116,8 @@ func _handle_hp_update(args):
 
 # --- GESTIONE DECISIONE ---
 func _handle_make_decision(args: Array):
-	if hud_bottom and hud_bottom.has_method("display_decision"):
-		hud_bottom.display_decision(args)
+	if hud_bottom and hud_bottom.has_method("show_decision_menu"):
+		hud_bottom.show_decision_menu(args)
 	else:
 		print("ATTENZIONE: Nodo HudBottom non trovato o metodo display_decision mancante!")
 

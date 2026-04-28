@@ -1,68 +1,55 @@
 extends CanvasLayer
 
-# Riferimento al contenitore orizzontale (HBoxContainer)
-# Assicurati che il percorso corrisponda alla tua gerarchia nella scena
-@onready var rooms_container = $BottomPanel/MarginContainer/RoomsContainer
+@onready var buttons_container = $BottomPanel/MarginContainer/RoomButtonsContainer
 
 func _ready():
-	# L'HUD deve essere invisibile all'inizio della partita
-	visible = false
+	# L'HUD deve essere invisibile di default
+	hide()
 
-# Questa funzione viene chiamata dal GameManager.gd
-# rooms_array contiene stringhe tipo ["NORTH:FIGHT:not_completed", "SOUTH:BOSS:not_completed"]
-func display_decision(rooms_array: Array):
-	# 1. Pulisci le opzioni della stanza precedente
-	for child in rooms_container.get_children():
+# Funzione da chiamare quando arriva il messaggio MAKE_DECISION
+# 'doors' sarà un Array di stringhe come ["NORTH:FIGHT:not_completed", "SOUTH:TREASURE:not_completed"]
+func show_decision_menu(doors: Array):
+	# 1. Pulisci eventuali bottoni rimasti dai turni precedenti
+	for child in buttons_container.get_children():
 		child.queue_free()
 	
-	# 2. Cicla attraverso le opzioni inviate dal server
-	for room_string in rooms_array:
-		if room_string == "": continue
-		
-		# Dividiamo la stringa usando i due punti ":"
-		var tokens = room_string.split(":")
-		
-		# Verifichiamo che ci siano tutti e 3 i parametri (direzione:tipo:stato)
-		if tokens.size() == 3:
-			var direction = tokens[0].to_upper()
-			var type = tokens[1].to_upper()
-			var status = tokens[2]
-			
-			# Creiamo un nuovo Label per questa scelta
-			var label = Label.new()
-			
-			# Formattazione del testo richiesta
-			label.text = "%s [%s] %s" % [direction, type, status]
-			
-			# Stile e Allineamento
-			label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-			label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-			label.size_flags_horizontal = Control.SIZE_EXPAND_FILL # Distribuisce equamente nello spazio
-			
-			# Colori dinamici in base al tipo di stanza
-			_apply_room_style(label, type, status)
-			
-			# Aggiungiamo la scritta al contenitore dell'HUD
-			rooms_container.add_child(label)
+	# 2. Mostra l'HUD
+	show()
 	
-	# 3. Rendiamo visibile l'HUD
-	visible = true
+	# 3. Crea dinamicamente i bottoni
+	var first_button = null
+	for door_info in doors:
+		var parts = door_info.split(":")
+		
+		# Assicuriamoci che il formato sia corretto (3 parti)
+		if parts.size() == 3:
+			var direction = parts[0]
+			var room_type = parts[1]
+			var state = parts[2]
+			
+			var btn = Button.new()
+			# Formattiamo il testo del bottone su più righe
+			btn.text = "Direction: %s Type: %s State: %s" % [direction, room_type, state]
+			btn.custom_minimum_size = Vector2(100, 200) # Dai una dimensione minima
+			
+			# Collega il segnale 'pressed' del bottone alla nostra funzione per gestire la scelta
+			# Passiamo 'direction' come argomento per sapere quale bottone è stato premuto
+			btn.pressed.connect(_on_button_pressed.bind(direction))
+			
+			buttons_container.add_child(btn)
+			
+			if first_button == null:
+				first_button = btn
 
-# Funzione per nascondere l'HUD (da chiamare quando il giocatore effettua una scelta)
-func hide_hud():
-	visible = false
+	# 4. Assegna il focus al primo bottone (utile per muoversi con le freccette della tastiera)
+	if first_button != null:
+		first_button.grab_focus()
 
-# Funzione interna per abbellire le scritte in base al contenuto
-func _apply_room_style(label: Label, type: String, status: String):
-	if status == "completed":
-		label.add_theme_color_override("font_color", Color.GRAY) # Grigio se già fatta
-	else:
-		match type:
-			"FIGHT":
-				label.add_theme_color_override("font_color", Color.INDIAN_RED)
-			"TREASURE":
-				label.add_theme_color_override("font_color", Color.GOLD)
-			"BOSS":
-				label.add_theme_color_override("font_color", Color.CRIMSON)
-			_:
-				label.add_theme_color_override("font_color", Color.WHITE)
+func _on_button_pressed(direction: String):
+	# Nascondi l'HUD quando una scelta è stata effettuata
+	hide()
+	
+	# Formatta il messaggio da inviare
+	var message = "SEND_DECISION " + direction
+	print("Inviando al server: ", message)
+	NetworkManager.send_to_server(message)
