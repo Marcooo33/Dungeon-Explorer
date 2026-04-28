@@ -236,6 +236,24 @@ const char* direction_to_string(Direction d){
     }
 }
 
+Direction string_to_direction(const char *str) {
+    if (strcmp(str, "NORTH") == 0) return NORTH;
+    if (strcmp(str, "SOUTH") == 0) return SOUTH;
+    if (strcmp(str, "EAST")  == 0) return EAST;
+    if (strcmp(str, "WEST")  == 0) return WEST;
+
+    return -1; // direzione non valida
+}
+
+// funzione helper per validità porta
+bool is_valid_direction(Direction d, Room *room) {
+    for (int i = 0; i < room->doors_num; i++) {
+        if (room->doors[i] == d)
+            return true;
+    }
+    return false;
+}
+
 void print_room(Room *r){
     if(r == NULL){
         printf("Room NULL\n");

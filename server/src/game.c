@@ -3,6 +3,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <arpa/inet.h>
+#include <poll.h>
 #include <stdbool.h>
 #include "game.h"
 #include "gameUtils.h"
@@ -113,15 +114,166 @@ int main(int argc, char *argv[]) {
         }
         sprintf(room_info_msg + strlen(room_info_msg), "\n"); // Aggiungi newline alla fine del messaggio
         broadcast(room_info_msg);
-        
-        
-        break;
-        
 
         // 3) ricevere la decisione
+        int votes[4] = {0}; // NORTH, SOUTH, EAST, WEST
+        int received = 0;
+        bool has_voted[MAX_PLAYERS] = {false};
+
+        struct pollfd fds[MAX_PLAYERS];
+
+        // Inizializzazione
+        for (int i = 0; i < connected_count; i++) {
+            fds[i].fd = players[i].socket_fd;
+            fds[i].events = POLLIN;
+            fds[i].revents = 0;
+        }
+
+        int timeout_ms = 5000; // 5 secondi
+        int elapsed = 0;
+        int step = 1000; // controlliamo ogni 1 secondo
+
+        while (received < connected_count && elapsed < timeout_ms) {
+            int activity = poll(fds, connected_count, step);
+
+            if (activity < 0) {
+                perror("poll error");
+                break;
+            }
+
+            if (activity == 0) {
+                // nessun evento → è passato 1 secondo
+                elapsed += step;
+                continue;
+            }
+
+            for (int i = 0; i < connected_count; i++) {
+                if ((fds[i].revents & POLLIN) && !has_voted[i]) {
+                    char buffer[128] = {0};
+                    int bytes = recv(fds[i].fd, buffer, sizeof(buffer) - 1, 0);
+
+                    if (bytes <= 0) continue;
+
+                    if (strncmp(buffer, "SEND_DECISION ", 14) == 0) {
+                        char *dir_str = buffer + 14;
+                        dir_str[strcspn(dir_str, "\r\n")] = 0;
+
+                        Direction d = string_to_direction(dir_str);
+
+                        if (d != -1) {
+                            votes[d]++;
+                        }
+
+                        has_voted[i] = true;
+                        received++;
+
+                        printf("[GAME %s] Player %d voted: %s\n",
+                            game_code, players[i].id, dir_str);
+                    }
+                }
+            }
+        }
+
+        // Debug timeout
+        if (received < connected_count) {
+            printf("[GAME %s] Timeout votazione (%d/%d ricevuti)\n",
+                game_code, received, connected_count);
+        }
+
+        int max_votes = 0;
+
+        // trova massimo
+        for (int i = 0; i < 4; i++) {
+            if (votes[i] > max_votes) {
+                max_votes = votes[i];
+            }
+        }
+
+
+        // raccogli candidati validi
+        Direction candidates[4];
+        int candidate_count = 0;
+
+        for (int i = 0; i < 4; i++) {
+            if (votes[i] == max_votes && max_votes > 0 &&
+                is_valid_direction(i, current_room)) {
+                candidates[candidate_count++] = i;
+            }
+        }
+
+        Direction chosen_direction;
+
+        // scelta finale
+        if (candidate_count == 0) {
+            printf("[GAME %s] Nessun voto valido, fallback casuale\n", game_code);
+
+            // fallback su porte valide della stanza
+            int r = rand() % current_room->doors_num;
+            chosen_direction = current_room->doors[r];
+        }
+        else if (candidate_count == 1) {
+            chosen_direction = candidates[0];
+        }
+        else {
+            int r = rand() % candidate_count;
+            chosen_direction = candidates[r];
+
+            printf("[GAME %s] Pareggio tra %d direzioni, scelta: %s\n",
+                game_code,
+                candidate_count,
+                direction_to_string(chosen_direction));
+        }
+
+        // debug finale
+        printf("[GAME %s] Decisione finale: %s\n",
+            game_code,
+            direction_to_string(chosen_direction));
+
+        // aggiorna stanza
+        next_room_idx = current_room->connected_rooms[chosen_direction];
         
         
         // 4) mandare la stanza da renderizzare
+
+        char room_msg[64] = "LOAD_ROOM ";
+        char doors_str[8] = "";
+
+        // Ordine FISSO: N S E W
+        Direction ordered_dirs[4] = {NORTH, SOUTH, EAST, WEST};
+
+        for (int i = 0; i < 4; i++) {
+            Direction d = ordered_dirs[i];
+            
+            for (int j = 0; j < dungeon.rooms->doors_num; j++) {
+                if (dungeon.rooms->doors[j] == d) {
+
+                    char c;
+                    switch (d) {
+                        case NORTH: c = 'n'; break;
+                        case SOUTH: c = 's'; break;
+                        case EAST:  c = 'e'; break;
+                        case WEST:  c = 'w'; break;
+                        default: continue;
+                    }
+
+                    int len = strlen(doors_str);
+                    doors_str[len] = c;
+                    doors_str[len + 1] = '\0';
+                }
+            }
+        }
+
+        // costruzione messaggio finale
+        strcat(room_msg, doors_str);
+        strcat(room_msg, "\n");
+
+        // invio a tutti i client
+        broadcast(room_msg);
+
+        // debug
+        printf("[GAME %s] Sent: %s", game_code, room_msg);
+        
+        current_room_idx = next_room_idx;
     }
     
 
