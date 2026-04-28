@@ -6,7 +6,6 @@
 #include <stdbool.h>
 #include "game.h"
 #include "gameUtils.h"
-#include "dungeon_generator.h"
 
 Player players[MAX_PLAYERS];
 int connected_count = 0;
