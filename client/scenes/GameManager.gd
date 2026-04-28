@@ -5,8 +5,10 @@ extends Node2D
 
 # Riferimento all'HUD e al RoomContainer
 # get_parent() serve perché GameManager è fratello di HUD e RoomContainer
-@onready var hud = get_parent().get_node("Hud")
-@onready var room_container = get_parent().get_node("RoomContainer")
+@onready var hud_top = get_parent().get_node_or_null("HudTop")
+@onready var room_container = get_parent().get_node_or_null("RoomContainer")
+@onready var hud_bottom = get_parent().get_node_or_null("HudBottom")
+
 
 # Dizionario per mappare: ID (int) -> Nodo del Giocatore
 var players_nodes = {}
@@ -47,11 +49,15 @@ func _on_game_data_received(cmd: String, args: Array):
 		"HP_PLAYER":
 			if args.size() >= 2:
 				_handle_hp_update(args)
-
+				
+		"MAKE_DECISION":
+			if args.size() > 0:
+				print("[DEBUG] comando 'make_decision' arrivato")
+				_handle_make_decision(args)
+				
 	# Aggiorna l'interfaccia ad ogni pacchetto ricevuto
-	if hud and hud.has_method("update_display"):
-		hud.update_display(my_id, players_nodes)
-		
+	if hud_top and hud_top.has_method("update_display"):
+		hud_top.update_display(my_id, players_nodes)
 
 # --- LOGICA DI SPAWN E MOVIMENTO ---
 
@@ -108,6 +114,13 @@ func _handle_hp_update(args):
 	var hp = args[1].to_int()
 	if players_nodes.has(id):
 		players_nodes[id].set("hp", hp)
+
+# --- GESTIONE DECISIONE ---
+func _handle_make_decision(args: Array):
+	if hud_bottom and hud_bottom.has_method("display_decision"):
+		hud_bottom.display_decision(args)
+	else:
+		print("ATTENZIONE: Nodo HudBottom non trovato o metodo display_decision mancante!")
 
 # --- ESTETICA ---
 

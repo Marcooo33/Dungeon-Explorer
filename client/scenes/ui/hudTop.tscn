@@ -1,8 +1,8 @@
 [gd_scene format=3 uid="uid://br63kqq0tdjyn"]
 
-[ext_resource type="Script" uid="uid://b47d604cxb8ex" path="res://scenes/ui/hud.gd" id="1_0mwgc"]
+[ext_resource type="Script" uid="uid://b47d604cxb8ex" path="res://scenes/ui/hudTop.gd" id="1_0mwgc"]
 
-[node name="Hud" type="CanvasLayer" unique_id=117921570]
+[node name="HudTop" type="CanvasLayer" unique_id=117921570]
 script = ExtResource("1_0mwgc")
 
 [node name="Control" type="Control" parent="." unique_id=1070369210]

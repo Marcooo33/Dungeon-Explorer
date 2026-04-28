@@ -1,3 +1,5 @@
+#include <unistd.h>
+   
 #include <stdlib.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -12,9 +14,10 @@ void broadcast(const char *message) {
     }
 }
 
-void default_encounter(Room *room) {
+void default_encounter() {
     // Default encounter function, can be overridden by specific room types
-    printf("You have entered room %s of type %s with %d doors at index %d.\n", room->id, room->type, room->doors_num, room->idx);
+    sleep(2); // Simula un incontro che dura 2 secondi
+    printf("You have entered in a room\n");
 }
 
 // (2) Mock funzione JSON

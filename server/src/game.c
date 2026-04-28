@@ -98,7 +98,7 @@ int main(int argc, char *argv[]) {
         current_room = &dungeon.rooms[current_room_idx];
 
         // 1) far svolgere encounter stanza
-        current_room->encounter(players);
+        current_room->encounter(current_room);
         current_room->completed = true;
         
         // 2) mandare una sorta di messaggio make decision
@@ -111,7 +111,11 @@ int main(int argc, char *argv[]) {
             adjacent_room = &dungeon.rooms[current_room->connected_rooms[door_direction]];
             sprintf(room_info_msg + strlen(room_info_msg), "%s:%s:%s ", direction_to_string(door_direction), adjacent_room->type, adjacent_room->completed ? "completed" : "not_completed");
         }
+        sprintf(room_info_msg + strlen(room_info_msg), "\n"); // Aggiungi newline alla fine del messaggio
         broadcast(room_info_msg);
+        
+        
+        break;
         
 
         // 3) ricevere la decisione

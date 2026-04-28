@@ -1,0 +1,29 @@
+[gd_scene format=3 uid="uid://mc6clmxdk6xg"]
+
+[ext_resource type="Script" uid="uid://b8kfedux82oj" path="res://scenes/ui/hud_bottom.gd" id="1_7pynh"]
+
+[node name="HudBottom" type="CanvasLayer" unique_id=483255735]
+script = ExtResource("1_7pynh")
+
+[node name="BottomPanel" type="PanelContainer" parent="." unique_id=1351428016]
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -401.0
+offset_top = -200.0
+grow_horizontal = 0
+grow_vertical = 0
+
+[node name="MarginContainer" type="MarginContainer" parent="BottomPanel" unique_id=384320823]
+layout_mode = 2
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 20
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 20
+
+[node name="RoomsContainer" type="HBoxContainer" parent="BottomPanel/MarginContainer" unique_id=493809472]
+layout_mode = 2
+size_flags_horizontal = 4
+theme_override_constants/separation = 50

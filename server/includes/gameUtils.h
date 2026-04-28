@@ -5,15 +5,13 @@
 #include "game.h"
 
 
-
-
-
-
 Dungeon generate_dungeon(int rooms_num);
 int generate_room(Dungeon *dungeon, int *last_idx, int current_room_idx, Direction door_direction);
 Direction get_opposite_direction(Direction door);
 void print_room(Room *r);
 void print_dungeon(Dungeon dungeon);
+const char* direction_to_string(Direction d);
+
 
 void broadcast(const char *message);
 

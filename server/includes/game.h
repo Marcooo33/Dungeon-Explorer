@@ -7,7 +7,7 @@
 #define MAX_DOORS 4
 
 typedef struct Room Room; // Forward declaration of Room for use in EncounterFunction
-typedef void (*EncounterFunction)(Room*); // Define a function pointer type for room encounters
+typedef void (*EncounterFunction)(); // Define a function pointer type for room encounters
 
 
 typedef struct {
