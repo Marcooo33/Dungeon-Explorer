@@ -140,10 +140,10 @@ Dungeon generate_dungeon(int rooms_num){
     //Dungeon allocation
     Dungeon dungeon;
     dungeon.rooms_num = rooms_num;
-    dungeon.rooms = calloc(rooms_num*2, sizeof(Room)); // allocate more rooms than rooms_num to account for dead-ends and boss room
+    dungeon.rooms = calloc(rooms_num*3, sizeof(Room)); // allocate more rooms than rooms_num to account for dead-ends and boss room
 
     //Inizializzazione delle conessioni delle stanze (non so se necessario)
-    for(int i=0;i<rooms_num*2;i++)
+    for(int i=0;i<rooms_num*3;i++)
         for(int j=0;j<MAX_DOORS;j++)
             dungeon.rooms[i].connected_rooms[j] = -1;
 
