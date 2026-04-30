@@ -4,7 +4,7 @@
 #include <stdbool.h>
 #include "game.h"
 
-
+void build_room_message(Room *room, char *buffer, size_t size);
 const char* direction_to_string(Direction dir);
 Direction string_to_direction(const char *str);
 bool is_valid_direction(Direction d, Room *room);

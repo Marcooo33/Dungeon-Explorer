@@ -93,6 +93,35 @@ Direction get_opposite_direction(Direction door){
     }
 }
 
+void build_room_message(Room *room, char *buffer, size_t size) {
+    char doors_str[8] = "";
+    int pos = 0;
+
+    Direction ordered_dirs[4] = {NORTH, SOUTH, EAST, WEST};
+
+    for (int i = 0; i < 4; i++) {
+        Direction d = ordered_dirs[i];
+
+        for (int j = 0; j < room->doors_num; j++) {
+            if (room->doors[j] == d) {
+
+                switch (d) {
+                    case NORTH: doors_str[pos++] = 'n'; break;
+                    case SOUTH: doors_str[pos++] = 's'; break;
+                    case EAST:  doors_str[pos++] = 'e'; break;
+                    case WEST:  doors_str[pos++] = 'w'; break;
+                }
+
+                break;
+            }
+        }
+    }
+
+    doors_str[pos] = '\0';
+
+    snprintf(buffer, size, "LOAD_ROOM %s\n", doors_str);
+}
+
 
 int generate_room(Dungeon *dungeon, int *last_idx, int current_room_idx, Direction door_direction){
     int new_idx = ++(*last_idx);

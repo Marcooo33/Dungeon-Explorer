@@ -130,7 +130,7 @@ int main(int argc, char *argv[]) {
             fds[i].revents = 0;
         }
 
-        int timeout_ms = 5000; // 5 secondi
+        int timeout_ms = 20000; // 20 secondi
         int elapsed = 0;
         int step = 1000; // controlliamo ogni 1 secondo
 
@@ -161,9 +161,7 @@ int main(int argc, char *argv[]) {
 
                         Direction d = string_to_direction(dir_str);
 
-                        if (d != -1) {
-                            votes[d]++;
-                        }
+                        votes[d]++;
 
                         has_voted[i] = true;
                         received++;
@@ -235,38 +233,8 @@ int main(int argc, char *argv[]) {
         
         
         // 4) mandare la stanza da renderizzare
-
-        char room_msg[64] = "LOAD_ROOM ";
-        char doors_str[8] = "";
-
-        // Ordine FISSO: N S E W
-        Direction ordered_dirs[4] = {NORTH, SOUTH, EAST, WEST};
-
-        for (int i = 0; i < 4; i++) {
-            Direction d = ordered_dirs[i];
-            
-            for (int j = 0; j < dungeon.rooms->doors_num; j++) {
-                if (dungeon.rooms->doors[j] == d) {
-
-                    char c;
-                    switch (d) {
-                        case NORTH: c = 'n'; break;
-                        case SOUTH: c = 's'; break;
-                        case EAST:  c = 'e'; break;
-                        case WEST:  c = 'w'; break;
-                        default: continue;
-                    }
-
-                    int len = strlen(doors_str);
-                    doors_str[len] = c;
-                    doors_str[len + 1] = '\0';
-                }
-            }
-        }
-
-        // costruzione messaggio finale
-        strcat(room_msg, doors_str);
-        strcat(room_msg, "\n");
+        char room_msg[64];
+        build_room_message(&dungeon.rooms[next_room_idx], room_msg, sizeof(room_msg));
 
         // invio a tutti i client
         broadcast(room_msg);
