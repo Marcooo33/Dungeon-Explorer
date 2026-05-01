@@ -6,6 +6,7 @@
 #include <time.h>
 #include <string.h>
 #include <sys/socket.h>
+#include <math.h>
 #include "game.h"
 
 void broadcast(const char *message) {
@@ -319,4 +320,6 @@ void print_dungeon(Dungeon dungeon){
     }
 }
 
-
+int distance(int x1, int y1, int x2, int y2) {
+    return abs(x1 - x2) + abs(y1 - y2);
+}

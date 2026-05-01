@@ -13,6 +13,13 @@ int connected_count = 0;
 char *game_code = NULL;
 Dungeon dungeon;
 
+Weapon weapons[] = {
+    {"Sword", 15, SHORT_RANGE, melee_attack},
+    {"Bow", 10, LONG_RANGE, ranged_attack},
+    {"claw", 12, SHORT_RANGE, melee_attack},
+    {"Boss Claws", 20, SHORT_RANGE, monster_attack}
+};
+
 void init_players() {
     for (int i = 0; i < connected_count; i++) {
         players[i].hp = 100;
@@ -99,7 +106,7 @@ int main(int argc, char *argv[]) {
         current_room = &dungeon.rooms[current_room_idx];
 
         // 1) far svolgere encounter stanza
-        current_room->encounter(current_room);
+        current_room->encounter(players, connected_count);
         current_room->completed = true;
         
         // 2) mandare una sorta di messaggio make decision
@@ -246,4 +253,329 @@ int main(int argc, char *argv[]) {
     }
     
 
+}
+
+void treasure_encounter(Player *players, int num_players){
+    broadcast("MESSAGE Congratulazioni! La fortuna vi arride, trovate tutti un ricco tesoro!\n");
+    char player_info_message[128];
+
+    for (int i = 0; i < num_players; i++) {
+        int gold_found = rand() % 50 + 10; // tra 10 e 59
+        players[i].gold += gold_found;
+
+        printf("Giocatore %d trova %d d'oro! Totale: %d\n",
+               players[i].id,
+               gold_found,
+               players[i].gold);
+    }
+
+    for (int i = 0; i < connected_count; i++) {
+        sprintf(player_info_message, "PLAYER_INFO %d %d %d %d %d\n", 
+                players[i].id, 
+                players[i].hp, 
+                (int)players[i].x, 
+                (int)players[i].y,
+                players[i].gold);
+                
+        broadcast(player_info_message);
+    }
+}
+
+
+void trap_encounter(Player *players, int num_players){
+    broadcast("MESSAGE Attenzione! Avete attivato una trappola!\n");
+    char player_info_message[128];
+
+    for (int i = 0; i < num_players; i++) {
+        int damage = rand() % 20 + 5; // tra 5 e 24
+        players[i].hp -= damage;
+
+        if (players[i].hp <= 0) {
+            players[i].alive = false;
+            players[i].hp = 0;
+            broadcast("MESSAGE Un giocatore è morto a causa della trappola!\n");
+        }
+    }
+
+    for (int i = 0; i < connected_count; i++) {
+        sprintf(player_info_message, "PLAYER_INFO %d %d %d %d %d\n", 
+                players[i].id, 
+                players[i].hp, 
+                (int)players[i].x, 
+                (int)players[i].y,
+                players[i].gold);
+                
+        broadcast(player_info_message);
+    }
+}
+
+void melee_attack(void *attacker, void *target) {
+    Player *p = (Player *)attacker;
+    Monster *m = (Monster *)target;
+
+    if (!p->weapon) return;
+
+    int dist = distance(p->x, p->y, m->x, m->y);
+
+    if (dist > p->weapon->range) {
+        printf("Bersaglio fuori range!\n");
+        return;
+    }
+
+    int defense = m->armor && m->armor->defense ? m->armor->defense : 0;
+    int damage = p->weapon->damage - defense;
+    if (damage < 0) damage = 0;
+
+    m->hp -= damage;
+
+    printf("Il Giocatore %d colpisce %s per %d danni (HP nemico: %d)\n",
+           p->id, m->name, damage, m->hp);
+}
+
+void ranged_attack(void *attacker, void *target) {
+    Player *p = (Player *)attacker;
+    Monster *m = (Monster *)target;
+
+    if (!p->weapon) return;
+
+    int dist = distance(p->x, p->y, m->x, m->y);
+
+    if (dist > p->weapon->range) {
+        printf("Troppo lontano per colpire!\n");
+        return;
+    }else if (dist >= SHORT_RANGE) {
+        printf("Troppo vicino per un attacco a distanza!\n");
+        return;
+    }
+
+    int damage = p->weapon->damage;
+    m->hp -= damage;
+
+    printf("Il Giocatore %d attacca a distanza %s per %d danni (HP: %d)\n",
+           p->id, m->name, damage, m->hp);
+}
+
+void move_player(Player *p) {
+    int dx = (rand() % 3) - 1;
+    int dy = (rand() % 3) - 1;
+
+    p->x += dx;
+    p->y += dy;
+
+    printf("Il Giocatore %d si muove a (%d, %d)\n", p->id, p->x, p->y);
+}
+
+void use_item(Player *p) {
+    if (!p->item) {
+        printf("Non hai oggetti!\n");
+        return;
+    }
+
+    p->item->use(p);
+
+    printf("Il Giocatore %d usa %s\n",
+           p->id, p->item->name);
+}
+
+void player_turn(Player *p, Monster *monsters, int num_monsters) {
+    if (p->hp <= 0) return;
+
+    printf("\nTurno del Giocatore %d\n", p->id);
+
+    int action = rand() % 3;
+
+    switch (action) {
+        case 0:
+            move_player(p);
+            break;
+
+        case 1: {
+            int target = rand() % num_monsters;
+
+            if (p->weapon && p->weapon->attack) {
+                p->weapon->attack(p, &monsters[target]);
+            }
+            break;
+        }
+
+        case 2:
+            use_item(p);
+            break;
+    }
+}
+
+void monster_attack(void *attacker, void *target) {
+    Monster *m = (Monster *)attacker;
+    Player *p = (Player *)target;
+
+    if (!m->weapon) return;
+
+    int dist = distance(m->x, m->y, p->x, p->y);
+
+    if (dist > m->weapon->range) {
+        printf("fuori range!\n");
+        return;
+    }
+
+    int defense = p->armor ? p->armor->defense : 0;
+    int damage = m->weapon->damage - defense;
+    if (damage < 0) damage = 0;
+
+    p->hp -= damage;
+
+    printf("%s attacca il Giocatore %d per %d danni (HP: %d)\n",
+           m->name, p->id, damage, p->hp);
+}
+
+void monster_turn(Monster *m, Player *players, int num_players) {
+    if (m->hp <= 0) return;
+
+    printf("\nTurno del mostro %s\n", m->name);
+
+    int target = rand() % num_players;
+
+    int dist = distance(m->x, m->y, players[target].x, players[target].y);
+
+    if (dist > m->weapon->range) {
+        m->x += (players[target].x > m->x) ? 1 : -1;
+        m->y += (players[target].y > m->y) ? 1 : -1;
+
+        printf("%s si avvicina\n", m->name);
+    } else {
+        if (m->weapon && m->weapon->attack) {
+            m->weapon->attack(m, &players[target]);
+        }
+    }
+}
+
+void combat_encounter(Player *players, int num_players) {
+    printf("Inizia il combattimento!\n");
+
+    Monster monsters[2] = {
+        {"Goblin", 50, 0, 0, &weapons[2], NULL},
+        {"Orc", 80, 2, 2, &weapons[2], NULL}
+    };
+
+    int num_monsters = 2;
+    int turn = 0;
+
+    while (1) {
+        printf("\n=== TURNO %d ===\n", turn++);
+
+        for (int i = 0; i < num_players; i++)
+            player_turn(&players[i], monsters, num_monsters);
+
+        int alive_monsters = 0;
+        for (int i = 0; i < num_monsters; i++)
+            if (monsters[i].hp > 0) alive_monsters++;
+
+        if (alive_monsters == 0) {
+            printf("I giocatori vincono!\n");
+            break;
+        }
+
+        for (int i = 0; i < num_monsters; i++)
+            monster_turn(&monsters[i], players, num_players);
+
+        int alive_players = 0;
+        for (int i = 0; i < num_players; i++)
+            if (players[i].hp > 0) alive_players++;
+
+        if (alive_players == 0) {
+            printf("I mostri vincono!\n");
+            break;
+        }
+    }
+}
+
+void boss_aoe_attack(Monster *boss, Player *players, int num_players) {
+    printf("%s usa ATTACCO AD AREA!\n", boss->name);
+
+    for (int i = 0; i < num_players; i++) {
+        if (players[i].hp <= 0) continue;
+
+        int damage = boss->weapon->damage / 2;
+
+        int defense = players[i].armor ? players[i].armor->defense : 0;
+        damage -= defense;
+        if (damage < 0) damage = 0;
+
+        players[i].hp -= damage;
+
+        printf("Il Giocatore %d subisce %d danni (HP: %d)\n",
+               players[i].id,
+               damage,
+               players[i].hp);
+    }
+}
+
+void boss_turn(Monster *boss, Player *players, int num_players) {
+    if (boss->hp <= 0) return;
+
+    printf("\nTurno del BOSS %s\n", boss->name);
+
+    int action = rand() % 3;
+
+    // 0 = movimento, 1 = attacco singolo, 2 = skill
+    if (action == 0) {
+        int target = rand() % num_players;
+
+        boss->x += (players[target].x > boss->x) ? 1 : -1;
+        boss->y += (players[target].y > boss->y) ? 1 : -1;
+
+        printf("%s si muove\n", boss->name);
+    }
+    else if (action == 1) {
+        int target = rand() % num_players;
+
+        if (boss->weapon && boss->weapon->attack) {
+            boss->weapon->attack(boss, &players[target]);
+        }
+    }
+    else {
+        boss_aoe_attack(boss, players, num_players);
+    }
+}
+
+void boss_encounter(Player *players, int num_players) {
+    printf("BOSS ENCOUNTER!\n");
+
+    Monster boss = {
+        "Dragon",
+        200,   // tanti HP
+        2, 2,
+        &weapons[3],
+        NULL
+    };
+
+    int turn = 0;
+
+    while (1) {
+        printf("\n=== TURNO %d ===\n", turn++);
+
+        // TURNI GIOCATORI
+        for (int i = 0; i < num_players; i++) {
+            player_turn(&players[i], &boss, 1);
+        }
+
+        // Controllo vittoria
+        if (boss.hp <= 0) {
+            printf("Il boss è stato sconfitto!\n");
+            break;
+        }
+
+        // TURNO BOSS
+        boss_turn(&boss, players, num_players);
+
+        // Controllo sconfitta
+        int alive_players = 0;
+        for (int i = 0; i < num_players; i++) {
+            if (players[i].hp > 0) alive_players++;
+        }
+
+        if (alive_players == 0) {
+            printf("Il boss ha sconfitto tutti i giocatori!\n");
+            break;
+        }
+    }
 }

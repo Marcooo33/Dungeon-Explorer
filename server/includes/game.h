@@ -6,17 +6,63 @@
 #define MAX_PLAYERS 4
 #define MAX_DOORS 4
 
-typedef struct Room Room; // Forward declaration of Room for use in EncounterFunction
-typedef void (*EncounterFunction)(); // Define a function pointer type for room encounters
+#define SHORT_RANGE 1
+#define LONG_RANGE 3
 
+typedef struct Room Room; 
+typedef struct Player Player; 
+typedef struct Monster Monster; 
 
-typedef struct {
+typedef void (*EncounterFunction)(Player *players, int num_players); // Define a function pointer type for room encounters
+typedef void (*AttackFunction)(void *attacker, void *target);
+typedef void (*ItemFunction)(Player *player); // Define a function pointer type for item usage
+
+void melee_attack(void *attacker, void *target);
+void ranged_attack(void *attacker, void *target);
+void monster_attack(void *attacker, void *target);
+
+typedef struct Weapon{
+    char *name;
+    int damage;
+    int range;
+    AttackFunction attack; // Function pointer to define the attack behavior of the weapon
+} Weapon;
+
+typedef struct Armor{
+    char *name;
+    int defense;
+} Armor;
+
+typedef struct Item{
+    char *name;
+    ItemFunction use; // Function pointer to define the effect of using the item
+} Item; 
+
+typedef struct Player{
+    // communication
     int socket_fd;
     int id;
+
+    // game info
     int x,y;
     int hp;
     bool alive;
+    int gold;
+    Weapon *weapon;
+    Armor *armor;
+    Item *item; 
+
 } Player;
+
+typedef struct Monster {
+    // game info
+    char *name;
+    int hp;
+    int x, y;
+
+    Weapon *weapon;
+    Armor *armor;
+} Monster;
 
 
 typedef enum Direction{
@@ -43,10 +89,6 @@ typedef struct Dungeon{
     int rooms_num; //initially the max number of rooms, later it becomes the actual number of rooms generated, useful for iterating over the rooms array
     Room *rooms;
 } Dungeon;
-
-
-
-
 
 extern Player players[MAX_PLAYERS];
 extern int connected_count;
