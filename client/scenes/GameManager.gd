@@ -9,6 +9,7 @@ extends Node2D
 @onready var room_container = get_parent().get_node_or_null("RoomContainer")
 @onready var hud_bottom = get_parent().get_node_or_null("HudBottom")
 
+signal load_room(coordinate)
 
 # Dizionario per mappare: ID (int) -> Nodo del Giocatore
 var players_nodes = {}
@@ -53,6 +54,11 @@ func _on_game_data_received(cmd: String, args: Array):
 		"MAKE_DECISION":
 			if args.size() > 0:
 				_handle_make_decision(args)
+				
+		"LOAD_ROOM":
+			if args.size() == 1:
+				var directions: String = args[0]
+				_handle_loading_room(directions)
 				
 	# Aggiorna l'interfaccia ad ogni pacchetto ricevuto
 	if hud_top and hud_top.has_method("update_display"):
@@ -114,12 +120,15 @@ func _handle_hp_update(args):
 	if players_nodes.has(id):
 		players_nodes[id].set("hp", hp)
 
-# --- GESTIONE DECISIONE ---
 func _handle_make_decision(args: Array):
 	if hud_bottom and hud_bottom.has_method("show_decision_menu"):
 		hud_bottom.show_decision_menu(args)
 	else:
 		print("ATTENZIONE: Nodo HudBottom non trovato o metodo display_decision mancante!")
+
+func _handle_loading_room(directions: String ): 
+	load_room.emit(directions)
+
 
 # --- ESTETICA ---
 
