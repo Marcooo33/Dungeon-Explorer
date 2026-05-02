@@ -30,11 +30,28 @@ extends Node2D
 
 # Called when the node enters the scene tree for the first time.a
 func _ready() -> void:
+	GameManager.load_room.connect(_on_loading_room)
 	var room_instance = starting_room.instantiate()
 	room_container.add_child(room_instance)
 
+func _on_loading_room(directions: String):
+	var variable_name = "room_" + directions.to_lower()
+	
+	# Otteniamo il riferimento alla PackedScene
+	var room_scene = get(variable_name)
+	
+	# Se vuoi rimuovere la stanza precedente:
+	for child in room_container.get_children():
+		child.queue_free()
+			
+	if room_container:
+		var room_instance = room_scene.instantiate()
+		room_container.add_child(room_instance)
+	else:
+		push_error("Errore: Impossibile trovare la stanza corrispondente a: " + variable_name)
+	
 
 # Called every frame. 'delta' is the elapsed time since the previous frame.
 func _process(_delta: float) -> void:
 	pass
-	
+		
