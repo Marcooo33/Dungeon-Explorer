@@ -95,4 +95,8 @@ extern int connected_count;
 extern bool game_started;
 extern char *game_code;
 
+
+void treasure_encounter(Player *players, int num_players);
+void trap_encounter(Player *players, int num_players);
+
 #endif

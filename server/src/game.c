@@ -26,6 +26,10 @@ void init_players() {
         players[i].alive = true;
         players[i].x = 0; // Posizione iniziale X
         players[i].y = i * 50; // Posizione iniziale Y
+        players[i].gold = 0;
+        players[i].weapon = NULL;
+        players[i].armor = NULL;
+        players[i].item = NULL;
     }
 }
 
@@ -59,41 +63,43 @@ int main(int argc, char *argv[]) {
         // Passiamo al token successivo per entrambe le stringhe
         socket_token = strtok_r(NULL, " ", &saveptr_sockets);
         id_token = strtok_r(NULL, " ", &saveptr_ids);
-
-
-        printf("[GAME %s] Ricevuti %d socket\n", game_code, connected_count);
-        broadcast("START_GAME\n");
-        sleep(3);
-
-        // Inviamo a ciascun client il proprio ID
-        char specific_client_msg[64];
-        for (int i = 0; i < connected_count; i++) {
-            sprintf(specific_client_msg, "SET_MY_ID %d\n", players[i].id);
-            send(players[i].socket_fd, specific_client_msg, strlen(specific_client_msg), 0);
-        }
-
-        init_players();
-
-        char player_info_message[128];
-        for (int i = 0; i < connected_count; i++) {
-            sprintf(player_info_message, "PLAYER_INFO %d %d %d %d\n", 
-                    players[i].id, 
-                    players[i].hp, 
-                    (int)players[i].x, 
-                    (int)players[i].y);
-                    
-            broadcast(player_info_message);
-        }
-
-
-        // Debug: stampa info giocatori
-        printf("[DEBUG] Connessi %d giocatori\n", connected_count);
-        printf("[GAME %s] Player Info:\n", game_code);
-        for (int i = 0; i < connected_count; i++) {
-            printf("Player %d: Socket FD=%d, HP=%d, Alive=%s, Position=(%d,%d)\n",
-            players[i].id, players[i].socket_fd, players[i].hp, players[i].alive ? "Yes" : "No", players[i].x, players[i].y);
-        }
     }
+
+
+    printf("[GAME %s] Ricevuti %d socket\n", game_code, connected_count);
+    broadcast("START_GAME\n");
+    sleep(3);
+
+    // Inviamo a ciascun client il proprio ID
+    char specific_client_msg[64];
+    for (int i = 0; i < connected_count; i++) {
+        sprintf(specific_client_msg, "SET_MY_ID %d\n", players[i].id);
+        send(players[i].socket_fd, specific_client_msg, strlen(specific_client_msg), 0);
+    }
+
+    init_players();
+
+    char player_info_message[128];
+    for (int i = 0; i < connected_count; i++) {
+        sprintf(player_info_message, "PLAYER_INFO %d %d %d %d %d\n", 
+                players[i].id, 
+                players[i].hp, 
+                (int)players[i].x, 
+                (int)players[i].y,
+                players[i].gold );
+                
+        broadcast(player_info_message);
+    }
+
+
+    // Debug: stampa info giocatori
+    printf("[DEBUG] Connessi %d giocatori\n", connected_count);
+    printf("[GAME %s] Player Info:\n", game_code);
+    for (int i = 0; i < connected_count; i++) {
+        printf("Player %d: Socket FD=%d, HP=%d, Alive=%s, Position=(%d,%d), Gold=%d\n",
+        players[i].id, players[i].socket_fd, players[i].hp, players[i].alive ? "Yes" : "No", players[i].x, players[i].y, players[i].gold);
+    }
+
 
     dungeon = generate_dungeon(5);
     int current_room_idx = 0; // Iniziamo nella prima stanza del dungeon
@@ -106,8 +112,10 @@ int main(int argc, char *argv[]) {
         current_room = &dungeon.rooms[current_room_idx];
 
         // 1) far svolgere encounter stanza
-        current_room->encounter(players, connected_count);
-        current_room->completed = true;
+        if (!current_room->completed){
+            current_room->encounter(players, connected_count);
+            current_room->completed = true;
+        }
         
         // 2) mandare una sorta di messaggio make decision
         Direction door_direction;
@@ -252,31 +260,27 @@ int main(int argc, char *argv[]) {
         current_room_idx = next_room_idx;
     }
     
-
 }
 
-void treasure_encounter(Player *players, int num_players){
-    broadcast("MESSAGE Congratulazioni! La fortuna vi arride, trovate tutti un ricco tesoro!\n");
-    char player_info_message[128];
 
+void treasure_encounter(Player *players, int num_players){
+    char treasure_found_message[128]; 
     for (int i = 0; i < num_players; i++) {
         int gold_found = rand() % 50 + 10; // tra 10 e 59
         players[i].gold += gold_found;
-
-        printf("Giocatore %d trova %d d'oro! Totale: %d\n",
-               players[i].id,
-               gold_found,
-               players[i].gold);
+        sprintf(treasure_found_message, "MESSAGE Congratulazioni! La fortuna vi arride. Avete trovato un ricco tesoro! Oro trovato: %d\n", gold_found);
+        send(players[i].socket_fd, treasure_found_message, strlen(treasure_found_message), 0);
     }
-
+    
+    char player_info_message[128];
     for (int i = 0; i < connected_count; i++) {
         sprintf(player_info_message, "PLAYER_INFO %d %d %d %d %d\n", 
                 players[i].id, 
                 players[i].hp, 
-                (int)players[i].x, 
-                (int)players[i].y,
-                players[i].gold);
-                
+                players[i].x, 
+                players[i].y,
+                players[i].gold
+        );
         broadcast(player_info_message);
     }
 }
@@ -301,8 +305,8 @@ void trap_encounter(Player *players, int num_players){
         sprintf(player_info_message, "PLAYER_INFO %d %d %d %d %d\n", 
                 players[i].id, 
                 players[i].hp, 
-                (int)players[i].x, 
-                (int)players[i].y,
+                players[i].x, 
+                players[i].y,
                 players[i].gold);
                 
         broadcast(player_info_message);

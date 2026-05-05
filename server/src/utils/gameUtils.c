@@ -137,7 +137,7 @@ int generate_room(Dungeon *dungeon, int *last_idx, int current_room_idx, Directi
     new_room->connected_rooms[get_opposite_direction(door_direction)] = current_room_idx;
 
     new_room->completed = false;
-    new_room->encounter = default_encounter;
+    new_room->encounter = treasure_encounter; // default, verrà sovrascritta in base al tipo di stanza
 
     return new_idx;
 }
