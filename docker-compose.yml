@@ -1,9 +1,10 @@
 services:
-  # 1. Server come devcontainer (non avvia il programma)
   server-dev:
     build:
       context: .
       dockerfile: ./.devcontainer/server/Dockerfile.dev
+    ports:
+      - "8080:8080"
     volumes:
       - ./server:/workspace/server
       - ./shared:/workspace/shared
@@ -11,38 +12,6 @@ services:
     networks:
       - dungeon-net
 
-  # 2. Esegue client Godot headless
-  client-auto:
-    build:
-      context: .
-      dockerfile: ./.devcontainer/client/Dockerfile.dev
-    volumes:
-      - ./client:/workspace/client
-      - ./shared:/workspace/shared
-    environment:
-      - SERVER_IP=server-dev
-      - SERVER_PORT=8080
-      - ACTION
-    command: godot --headless 
-    networks:
-      - dungeon-net
-
-  # 3. Client Godot come devcontainer (non avvia il comando)
-  client-dev:
-    build:
-      context: .
-      dockerfile: ./.devcontainer/client/Dockerfile.dev
-    volumes:
-      - ./client:/workspace/client
-      - ./shared:/workspace/shared
-    environment:
-      - SERVER_IP=server-dev
-      - SERVER_PORT=8080
-    command: sleep infinity
-    networks:
-      - dungeon-net
-
-# 4. Server per produzione (mettere in un compose separato ???)
   server-prod:
     build:
       context: .
