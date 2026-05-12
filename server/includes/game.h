@@ -22,7 +22,6 @@ void treasure_encounter1(Player *players, int num_players);
 void treasure_encounter2(Player *players, int num_players);
 void treasure_encounter3(Player *players, int num_players);
 
-EncounterFunction treasure_encounters[] = {treasure_encounter1, treasure_encounter2, treasure_encounter3};
 
 void trap_encounter(Player *players, int num_players);
 

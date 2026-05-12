@@ -9,6 +9,9 @@
 #include <math.h>
 #include "game.h"
 
+EncounterFunction treasure_encounters[] = {treasure_encounter1, treasure_encounter2, treasure_encounter3};
+
+
 void broadcast(const char *message) {
     for (int i = 0; i < connected_count; i++) {
         send(players[i].socket_fd, message, strlen(message), 0);
