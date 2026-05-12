@@ -16,8 +16,8 @@ Dungeon dungeon;
 Weapon weapons[] = {
     {"Sword", 15, SHORT_RANGE, melee_attack},
     {"Bow", 10, LONG_RANGE, ranged_attack},
-    {"claw", 12, SHORT_RANGE, melee_attack},
-    {"Boss Claws", 20, SHORT_RANGE, monster_attack}
+    {"Claw", 12, SHORT_RANGE, melee_attack},
+    {"Boss_Claws", 20, SHORT_RANGE, monster_attack}
 };
 
 Weapon player_weapons[] = {
@@ -27,12 +27,12 @@ Weapon player_weapons[] = {
 };
 
 Armor player_armors[] = {
-    {"Leather Armor", 5},
+    {"Leather_Armor", 5},
     {"Chainmail", 10}
 };
 
 Item player_items[] = {
-    {"Health Potion", health_potion_function}
+    {"Health_Potion", health_potion_function}
 };
 
 
@@ -302,43 +302,50 @@ void treasure_encounter3(Player *players, int num_players){
         if (reward_type == 0) {
             Weapon found_weapon = player_weapons[rand() % 2];
 
-            sprintf(treasure_found_message, "MAKE_INVENTORY_DECISION Hai trovato un'arma: %s atk: %d range: %d", found_weapon.name, found_weapon.damage, found_weapon.range);
+            sprintf(treasure_found_message, "MAKE_INVENTORY_DECISION Hai trovato un'arma: %s atk: %d range: %d\n", found_weapon.name, found_weapon.damage, found_weapon.range);
             send(players[i].socket_fd, treasure_found_message, strlen(treasure_found_message), 0);
             recv(players[i].socket_fd, decision_buffer, sizeof(decision_buffer) - 1, 0); // Aspettiamo la decisione del client
 
-            if(strcmp(decision_buffer, "true") == 0) {
+            if(strncmp(decision_buffer, "SEND_DECISION T", 15) == 0) {
+                printf("[DEBUG] Trovata arma: %s, danno: %d, range: %d\n", found_weapon.name, found_weapon.damage, found_weapon.range);
                 players[i].weapon = &found_weapon;
             }
+
+            broadcast_player_info(&players[i]);
+
 
         } else if (reward_type == 1) {
             Armor found_armor = player_armors[rand() % 2];
             
-            sprintf(treasure_found_message, "MAKE_INVENTORY_DECISION Hai trovato un'armatura: %s def: %d", found_armor.name, found_armor.defense);
+            sprintf(treasure_found_message, "MAKE_INVENTORY_DECISION Hai trovato un'armatura: %s def: %d\n", found_armor.name, found_armor.defense);
             send(players[i].socket_fd, treasure_found_message, strlen(treasure_found_message), 0);
             recv(players[i].socket_fd, decision_buffer, sizeof(decision_buffer) - 1, 0); // Aspettiamo la decisione del client
 
-            if (strcmp(decision_buffer, "true") == 0)
+            if (strncmp(decision_buffer, "SEND_DECISION T", 15) == 0)
             {
+                printf("[DEBUG] Trovata armatura: %s, difesa: %d\n", found_armor.name, found_armor.defense);
                 players[i].armor = &found_armor;
             }
-            
+
+            broadcast_player_info(&players[i]);
 
         } else {
             Item found_item = player_items[rand() % 1];
-            sprintf(treasure_found_message, "MAKE_INVENTORY_DECISION Hai trovato un oggetto: %s", found_item.name);
+            sprintf(treasure_found_message, "MAKE_INVENTORY_DECISION Hai trovato un oggetto: %s\n", found_item.name);
             send(players[i].socket_fd, treasure_found_message, strlen(treasure_found_message), 0);
             recv(players[i].socket_fd, decision_buffer, sizeof(decision_buffer) - 1, 0); // Aspettiamo la decisione del client
 
-            if (strcmp(decision_buffer, "true") == 0)
+            if (strncmp(decision_buffer, "SEND_DECISION T", 15) == 0)
             {
+                printf("[DEBUG] Trovato oggetto: %s\n", found_item.name);
                 players[i].item = &found_item;
             }
+
+            broadcast_player_info(&players[i]);
+
         }
     }
-    
-    for (int i = 0; i < connected_count; i++) {
-        broadcast_player_info(&players[i]);
-    }
+
 }
 
 

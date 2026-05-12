@@ -19,7 +19,8 @@ config/icon="res://icon.svg"
 
 NetworkManager="*uid://dnq8aytad4rdv"
 GameManager="*uid://y7jvm16tr7mu"
-MessagePopup="*uid://b67oiasa6hcjn"
+StaticPopup="*uid://ibttv8laq4gt"
+TimedPopup="*uid://b67oiasa6hcjn"
 
 [display]
 

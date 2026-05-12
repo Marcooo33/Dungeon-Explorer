@@ -50,8 +50,7 @@ func _on_game_data_received(cmd: String, args: Array):
 				_remove(args)
 
 		"PLAYER_INFO":
-			if args.size() == 5:
-				_handle_player_info(args)
+			_handle_player_info(args)
 
 		"HP_PLAYER":
 			if args.size() >= 2:
@@ -61,10 +60,19 @@ func _on_game_data_received(cmd: String, args: Array):
 			var text = " ".join(args)
 			_show_message_popup(text)
 				
-		"MAKE_DECISION":
+		"MAKE_ROOM_DECISION":
 			if args.size() > 0:
-				_handle_make_decision(args)
+				_handle_make_room_decision(args)
 				
+		"MAKE_INVENTORY_DECISION":
+			if args.size() > 0:
+				var text = " ".join(args)
+				StaticPopup.show_message(text)
+				_handle_make_inventory_decision()
+			
+		"MAKE_TURN_DECISION":
+			pass
+		
 		"LOAD_ROOM":
 			if args.size() == 1:
 				var directions: String = args[0]
@@ -123,6 +131,19 @@ func _handle_player_info(args):
 	var hp = args[1].to_int()
 	var pos = Vector2(args[2].to_float(), args[3].to_float())
 	var gold = args[4].to_int()
+	
+	var weapon_data = args[5].split(":")
+	print("[DEBUG] ", weapon_data)
+	var weapon_name = str(weapon_data[0])
+	var weapon_damage = str(weapon_data[1])
+	var weapon_range = str(weapon_data[2])
+	
+	var armor_data = args[6].split(":")
+	var armor_name = str(armor_data[0])
+	var armor_defense = str(armor_data[1])
+	
+	var item_name = str(args[7])
+	
 
 	# Controllo di sicurezza
 	if players_nodes.has(id) and not is_instance_valid(players_nodes[id]):
@@ -135,8 +156,14 @@ func _handle_player_info(args):
 		
 	players_nodes[id].set_meta("hp", hp)
 	players_nodes[id].set_meta("gold", gold)
-		
-
+	players_nodes[id].set_meta("weapon_name", weapon_name)
+	players_nodes[id].set_meta("weapon_damage", weapon_damage)
+	players_nodes[id].set_meta("weapon_range", weapon_range)
+	players_nodes[id].set_meta("armor_name", armor_name)
+	players_nodes[id].set_meta("armor_defense", armor_defense)
+	players_nodes[id].set_meta("item_name", item_name)
+	
+	
 func _handle_hp_update(args):
 	var id = args[0].to_int()
 	var hp = args[1].to_int()
@@ -148,17 +175,22 @@ func _handle_hp_update(args):
 		players_nodes[id].set("hp", hp)
 
 func _show_message_popup(message_text: String):
-		MessagePopup.show_message(message_text)
+		TimedPopup.show_message(message_text)
 
-func _handle_make_decision(args: Array):
-	if hud_bottom and hud_bottom.has_method("show_decision_menu"):
-		hud_bottom.show_decision_menu(args)
+func _handle_make_room_decision(args: Array):
+	if hud_bottom and hud_bottom.has_method("show_room_decision_menu"):
+		hud_bottom.show_room_decision_menu(args)
+	else:
+		print("ATTENZIONE: Nodo HudBottom non trovato o metodo display_decision mancante!")
+
+func _handle_make_inventory_decision():
+	if hud_bottom and hud_bottom.has_method("show_inventory_decision_menu"):
+		hud_bottom.show_inventory_decision_menu()
 	else:
 		print("ATTENZIONE: Nodo HudBottom non trovato o metodo display_decision mancante!")
 
 func _handle_loading_room(directions: String ): 
 	load_room.emit(directions)
-
 # --- ESTETICA ---
 
 func _setup_local_player_visuals(player_node):

@@ -33,6 +33,7 @@ void broadcast_player_info(Player *player) {
             player->armor ? player->armor->defense : 0,
             player->item ? player->item->name : "Nessuno"
     );
+    printf("[DEBUG] Broadcast player info: %s", player_info_message);
     broadcast(player_info_message);
 }
 

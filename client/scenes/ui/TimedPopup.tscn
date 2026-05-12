@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://b67oiasa6hcjn"]
 
-[ext_resource type="Script" uid="uid://dhyu28ge1ogen" path="res://scenes/ui/message_popup.gd" id="1_0j8md"]
+[ext_resource type="Script" uid="uid://dhyu28ge1ogen" path="res://scenes/ui/timed_popup.gd" id="1_0j8md"]
 
 [sub_resource type="InputEventAction" id="InputEventAction_r8gvn"]
 action = &"ui_accept"
@@ -8,7 +8,7 @@ action = &"ui_accept"
 [sub_resource type="Shortcut" id="Shortcut_52q6s"]
 events = [SubResource("InputEventAction_r8gvn")]
 
-[node name="MessagePopup" type="CanvasLayer" unique_id=839432331]
+[node name="TimedPopup" type="CanvasLayer" unique_id=839432331]
 layer = 100
 script = ExtResource("1_0j8md")
 
