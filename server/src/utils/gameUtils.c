@@ -15,6 +15,24 @@ void broadcast(const char *message) {
     }
 }
 
+void broadcast_player_info(Player *player) {
+    char player_info_message[128];
+    sprintf(player_info_message, "PLAYER_INFO %d %d %d %d %d %s:%d:%d %s:%d %s\n", 
+            player->id, 
+            player->hp, 
+            player->x, 
+            player->y,
+            player->gold,
+            player->weapon ? player->weapon->name : "Nessuna",
+            player->weapon ? player->weapon->damage : 0,
+            player->weapon ? player->weapon->range : 0,
+            player->armor ? player->armor->name : "Nessuna",
+            player->armor ? player->armor->defense : 0,
+            player->item ? player->item->name : "Nessuno"
+    );
+    broadcast(player_info_message);
+}
+
 void default_encounter() {
     // Default encounter function, can be overridden by specific room types
     sleep(2); // Simula un incontro che dura 2 secondi
@@ -23,12 +41,19 @@ void default_encounter() {
 
 // (2) Mock funzione JSON
 void random_room_template(Room *room, Direction required_door){
-    int r = rand() % 3;
+    int room_type = rand() % 3;
 
     // Tipo stanza
-    if(r == 0) room->type = "battle";
-    else if(r == 1) room->type = "treasure";
-    else room->type = "trap";
+    if(room_type == 0){
+        room->type = "battle";
+        room->encounter = combat_encounter;
+    } else if(room_type == 1) {
+        room->type = "treasure";
+        room->encounter = treasure_encounters[rand() % 3];
+    } else {
+        room->type = "trap";
+        room->encounter = trap_encounter;
+    }
 
     room->id = room->type;
 
@@ -137,7 +162,6 @@ int generate_room(Dungeon *dungeon, int *last_idx, int current_room_idx, Directi
     new_room->connected_rooms[get_opposite_direction(door_direction)] = current_room_idx;
 
     new_room->completed = false;
-    new_room->encounter = treasure_encounter; // default, verrà sovrascritta in base al tipo di stanza
 
     return new_idx;
 }
@@ -252,7 +276,7 @@ Dungeon generate_dungeon(int rooms_num){
     int boss_idx = find_farthest_room(&dungeon);
     dungeon.rooms[boss_idx].type = "boss";
     dungeon.rooms[boss_idx].id = "boss_room";
-
+    dungeon.rooms[boss_idx].encounter = boss_encounter;
     return dungeon;
 }
 

@@ -17,9 +17,23 @@ typedef void (*EncounterFunction)(Player *players, int num_players); // Define a
 typedef void (*AttackFunction)(void *attacker, void *target);
 typedef void (*ItemFunction)(Player *player); // Define a function pointer type for item usage
 
+
+void treasure_encounter1(Player *players, int num_players);
+void treasure_encounter2(Player *players, int num_players);
+void treasure_encounter3(Player *players, int num_players);
+
+EncounterFunction treasure_encounters[] = {treasure_encounter1, treasure_encounter2, treasure_encounter3};
+
+void trap_encounter(Player *players, int num_players);
+
+void combat_encounter(Player *players, int num_players);
+void boss_encounter(Player *players, int num_players);
+
 void melee_attack(void *attacker, void *target);
 void ranged_attack(void *attacker, void *target);
 void monster_attack(void *attacker, void *target);
+
+void health_potion_function(Player *player);
 
 typedef struct Weapon{
     char *name;
@@ -94,9 +108,5 @@ extern Player players[MAX_PLAYERS];
 extern int connected_count;
 extern bool game_started;
 extern char *game_code;
-
-
-void treasure_encounter(Player *players, int num_players);
-void trap_encounter(Player *players, int num_players);
 
 #endif

@@ -18,5 +18,6 @@ int distance(int x1, int y1, int x2, int y2);
 
 
 void broadcast(const char *message);
+void broadcast_player_info(Player *player);
 
 #endif

@@ -20,6 +20,22 @@ Weapon weapons[] = {
     {"Boss Claws", 20, SHORT_RANGE, monster_attack}
 };
 
+Weapon player_weapons[] = {
+    {"Fists", 5, SHORT_RANGE, melee_attack},
+    {"Sword", 15, SHORT_RANGE, melee_attack},
+    {"Bow", 10, LONG_RANGE, ranged_attack}
+};
+
+Armor player_armors[] = {
+    {"Leather Armor", 5},
+    {"Chainmail", 10}
+};
+
+Item player_items[] = {
+    {"Health Potion", health_potion_function}
+};
+
+
 void init_players() {
     for (int i = 0; i < connected_count; i++) {
         players[i].hp = 100;
@@ -27,7 +43,7 @@ void init_players() {
         players[i].x = 0; // Posizione iniziale X
         players[i].y = i * 50; // Posizione iniziale Y
         players[i].gold = 0;
-        players[i].weapon = NULL;
+        players[i].weapon = &player_weapons[0]; // Fists di default
         players[i].armor = NULL;
         players[i].item = NULL;
     }
@@ -81,14 +97,7 @@ int main(int argc, char *argv[]) {
 
     char player_info_message[128];
     for (int i = 0; i < connected_count; i++) {
-        sprintf(player_info_message, "PLAYER_INFO %d %d %d %d %d\n", 
-                players[i].id, 
-                players[i].hp, 
-                (int)players[i].x, 
-                (int)players[i].y,
-                players[i].gold );
-                
-        broadcast(player_info_message);
+        broadcast_player_info(&players[i]);
     }
 
 
@@ -112,7 +121,7 @@ int main(int argc, char *argv[]) {
         current_room = &dungeon.rooms[current_room_idx];
 
         // 1) far svolgere encounter stanza
-        if (!current_room->completed){
+        if (current_room->completed == false){
             current_room->encounter(players, connected_count);
             current_room->completed = true;
         }
@@ -262,8 +271,8 @@ int main(int argc, char *argv[]) {
     
 }
 
-
-void treasure_encounter(Player *players, int num_players){
+void treasure_encounter1(Player *players, int num_players){
+    broadcast("MESSAGE Congratulazioni! La fortuna vi arride, trovate tutti un ricco tesoro!\n");
     char treasure_found_message[128]; 
     for (int i = 0; i < num_players; i++) {
         int gold_found = rand() % 50 + 10; // tra 10 e 59
@@ -274,15 +283,30 @@ void treasure_encounter(Player *players, int num_players){
     
     char player_info_message[128];
     for (int i = 0; i < connected_count; i++) {
-        sprintf(player_info_message, "PLAYER_INFO %d %d %d %d %d\n", 
-                players[i].id, 
-                players[i].hp, 
-                players[i].x, 
-                players[i].y,
-                players[i].gold
-        );
-        broadcast(player_info_message);
+        broadcast_player_info(&players[i]);
     }
+}
+
+void treasure_encounter2(Player *players, int num_players){
+    broadcast("MESSAGE Vi si palesa davanti un tesoro! Lo aprite e... capite che la fortuna ha arriso altri esploratori!\n");
+}
+
+void treasure_encounter3(Player *players, int num_players){
+    broadcast("MESSAGE Trovate un forziere con dell'equipaggiamento! Forse un regalo, voluto o meno, da parte degli esploratori prima di voi!\n");
+    for (int i = 0; i < num_players; i++) {
+        int reward_type = rand() % 3;
+        if (reward_type == 0) {
+            players[i].weapon = &player_weapons[rand() % 2];
+            printf("Giocatore %d trova un'arma: %s\n", players[i].id, players[i].weapon->name);
+        } else if (reward_type == 1) {
+            players[i].armor = &player_armors[rand() % 2];
+            printf("Giocatore %d trova un'armatura: %s\n", players[i].id, players[i].armor->name);
+        } else {
+            players[i].item = &player_items[rand() % 1];
+            printf("Giocatore %d trova un oggetto: %s\n", players[i].id, players[i].item->name);
+        }
+    }
+    
 }
 
 
@@ -302,14 +326,7 @@ void trap_encounter(Player *players, int num_players){
     }
 
     for (int i = 0; i < connected_count; i++) {
-        sprintf(player_info_message, "PLAYER_INFO %d %d %d %d %d\n", 
-                players[i].id, 
-                players[i].hp, 
-                players[i].x, 
-                players[i].y,
-                players[i].gold);
-                
-        broadcast(player_info_message);
+        broadcast_player_info(&players[i]);
     }
 }
 
@@ -379,6 +396,15 @@ void use_item(Player *p) {
 
     printf("Il Giocatore %d usa %s\n",
            p->id, p->item->name);
+}
+
+void health_potion_function(Player *p) {
+    int heal = 30; // tra 20 e 49
+    p->hp += heal;
+    if (p->hp > 100) p->hp = 100;
+
+    printf("Il Giocatore %d recupera %d HP (HP attuali: %d)\n",
+           p->id, heal, p->hp);
 }
 
 void player_turn(Player *p, Monster *monsters, int num_monsters) {
@@ -453,7 +479,7 @@ void monster_turn(Monster *m, Player *players, int num_players) {
 }
 
 void combat_encounter(Player *players, int num_players) {
-    printf("Inizia il combattimento!\n");
+    broadcast("MESSAGE Appena entrati nella stanza vi trovate davanti dei pericolosi mostri, l'unica alternativa è combatterli!\n");
 
     Monster monsters[2] = {
         {"Goblin", 50, 0, 0, &weapons[2], NULL},
@@ -462,9 +488,10 @@ void combat_encounter(Player *players, int num_players) {
 
     int num_monsters = 2;
     int turn = 0;
+    char* message; 
 
     while (1) {
-        printf("\n=== TURNO %d ===\n", turn++);
+        sprintf(message, "\n=== TURNO %d ===\n", turn++);
 
         for (int i = 0; i < num_players; i++)
             player_turn(&players[i], monsters, num_monsters);
@@ -474,7 +501,7 @@ void combat_encounter(Player *players, int num_players) {
             if (monsters[i].hp > 0) alive_monsters++;
 
         if (alive_monsters == 0) {
-            printf("I giocatori vincono!\n");
+            broadcast("MESSAGE I giocatori vincono!\n");
             break;
         }
 
@@ -486,7 +513,7 @@ void combat_encounter(Player *players, int num_players) {
             if (players[i].hp > 0) alive_players++;
 
         if (alive_players == 0) {
-            printf("I mostri vincono!\n");
+            broadcast("MESSAGE I mostri vincono!\n");
             break;
         }
     }
