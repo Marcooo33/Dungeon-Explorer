@@ -2,6 +2,9 @@ extends Node2D
 
 # Caricamento della scena del giocatore
 @onready var player_scene = preload("res://characters/player/player.tscn")
+@onready var monster_scene = preload("res://characters/monster/Monster.tscn")
+@onready var players_container = get_parent().get_node_or_null("PlayersContainer")
+@onready var monsters_container = get_parent().get_node_or_null("MonstersContainer")
 
 # Riferimento all'HUD, al RoomContainer, HudBottom e al nuovo PlayersContainer
 # get_parent() serve perché GameManager è fratello di questi nodi
@@ -9,12 +12,11 @@ extends Node2D
 @onready var room_container = get_parent().get_node_or_null("RoomContainer")
 @onready var hud_bottom = get_parent().get_node_or_null("HudBottom")
 
-@onready var players_container = get_parent().get_node_or_null("PlayersContainer")
 
 signal load_room(coordinate)
 
-# Dizionario per mappare: ID (int) -> Nodo del Giocatore
 var players_nodes = {}
+var monsters_nodes = {}
 
 # ID univoco del client corrente (assegnato dal server)
 var my_id: int = -1
@@ -51,7 +53,10 @@ func _on_game_data_received(cmd: String, args: Array):
 
 		"PLAYER_INFO":
 			_handle_player_info(args)
-
+			
+		"MONSTER_INFO":
+			_handle_monster_info(args)
+			
 		"HP_PLAYER":
 			if args.size() >= 2:
 				_handle_hp_update(args)
@@ -162,6 +167,43 @@ func _handle_player_info(args):
 	players_nodes[id].set_meta("armor_name", armor_name)
 	players_nodes[id].set_meta("armor_defense", armor_defense)
 	players_nodes[id].set_meta("item_name", item_name)
+	
+	
+func _handle_monster_info(args: Array):
+	# Formato atteso: [nome, hp, alive, x, y, arma_info, armatura_info]
+	if args.size() < 7:
+		return
+
+	var m_name = args[0]
+	var m_hp = args[1].to_int()
+	var m_alive = args[2] == "1"
+	var m_pos = Vector2(args[3].to_float() * 32, args[4].to_float() * 32) # Assumendo tile da 32px
+	var m_armor_data = args[6] # "armatura:difesa"
+
+	# Se il mostro non esiste ancora, lo creiamo
+	if not monsters_nodes.has(m_name):
+		var new_monster = monster_scene.instantiate()
+		monsters_container.add_child(new_monster)
+		monsters_nodes[m_name] = new_monster
+		
+		# Estraiamo l'armatura e passiamola allo script del mostro
+		var armor_parts = m_armor_data.split(":")
+		var armor_type = armor_parts[0]
+		if new_monster.has_method("setup"):
+			# PASSIAMO SIA IL NOME CHE L'ARMATURA
+			new_monster.setup(m_name, armor_type)
+
+	var monster_node = monsters_nodes[m_name]
+	
+	# Aggiorniamo posizione e stato
+	monster_node.position = m_pos
+	monster_node.is_alive = m_alive
+	
+	# Se il mostro è morto nel server, chiamiamo la funzione di morte nel client
+	if not m_alive:
+		if monster_node.has_method("die"):
+			monster_node.die()
+		monsters_nodes.erase(m_name) # Lo togliamo dal dizionario dopo la morte
 	
 	
 func _handle_hp_update(args):

@@ -14,6 +14,10 @@ script = ExtResource("2_vrspl")
 [node name="RoomContainer" type="Node2D" parent="." unique_id=211479410]
 
 [node name="PlayersContainer" type="Node2D" parent="." unique_id=234890175]
+y_sort_enabled = true
+
+[node name="MonstersContainer" type="Node2D" parent="." unique_id=1928437862]
+y_sort_enabled = true
 
 [node name="HudTop" parent="." unique_id=117921570 instance=ExtResource("2_m44fu")]
 
