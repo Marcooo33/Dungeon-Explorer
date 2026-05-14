@@ -13,25 +13,24 @@ int connected_count = 0;
 char *game_code = NULL;
 Dungeon dungeon;
 
-Weapon weapons[] = {
-    {"Sword", 15, SHORT_RANGE, melee_attack},
-    {"Bow", 10, LONG_RANGE, ranged_attack},
-    {"Claw", 12, SHORT_RANGE, melee_attack},
+Weapon monster_weapons[] = {
+    {"Sword", 15, SHORT_RANGE, monster_attack},
+    {"Bow", 10, LONG_RANGE, monster_attack},
+    {"Claw", 12, SHORT_RANGE, monster_attack},
     {"Boss_Claws", 20, SHORT_RANGE, monster_attack}
 };
 
 Weapon player_weapons[] = {
-    {"Fists", 5, SHORT_RANGE, melee_attack},
     {"Sword", 15, SHORT_RANGE, melee_attack},
     {"Bow", 10, LONG_RANGE, ranged_attack}
 };
 
-Armor player_armors[] = {
-    {"Leather_Armor", 5},
+Armor armors[] = {
+    {"Leather", 5},
     {"Chainmail", 10}
 };
 
-Item player_items[] = {
+Item items[] = {
     {"Health_Potion", health_potion_function}
 };
 
@@ -43,7 +42,7 @@ void init_players() {
         players[i].x = 0; // Posizione iniziale X
         players[i].y = i * 50; // Posizione iniziale Y
         players[i].gold = 0;
-        players[i].weapon = &player_weapons[0]; // Fists di default
+        players[i].weapon = &(Weapon){"Fists", 5, SHORT_RANGE, melee_attack}; // Fists di default
         players[i].armor = NULL;
         players[i].item = NULL;
     }
@@ -122,8 +121,14 @@ int main(int argc, char *argv[]) {
 
         // 1) far svolgere encounter stanza
         if (current_room->completed == false){
-            current_room->encounter(players, connected_count);
-            current_room->completed = true;
+            bool room_cleared = current_room->encounter(players, connected_count);
+            if (room_cleared)
+                current_room->completed = true;
+            else {
+                printf("[GAME %s] Tutti i giocatori sono morti nella stanza %d. Game Over.\n", game_code, current_room_idx);
+                broadcast("GAME_OVER\n");
+                break;
+            }
         }
         
         // 2) mandare una sorta di messaggio make decision
@@ -271,7 +276,7 @@ int main(int argc, char *argv[]) {
     
 }
 
-void treasure_encounter1(Player *players, int num_players){
+bool treasure_encounter1(Player *players, int num_players){
     broadcast("MESSAGE Congratulazioni! La fortuna vi arride, trovate tutti un ricco tesoro!\n");
     char treasure_found_message[128]; 
     for (int i = 0; i < num_players; i++) {
@@ -285,14 +290,16 @@ void treasure_encounter1(Player *players, int num_players){
     for (int i = 0; i < connected_count; i++) {
         broadcast_player_info(&players[i]);
     }
+    return true;
 }
 
-void treasure_encounter2(Player *players, int num_players){
+bool treasure_encounter2(Player *players, int num_players){
     broadcast("MESSAGE Vi si palesa davanti un tesoro! Lo aprite e... capite che la fortuna ha arriso altri esploratori!\n");
+    return true;
 }
 
 //MAKE_INVENTORY_DECISION 
-void treasure_encounter3(Player *players, int num_players){
+bool treasure_encounter3(Player *players, int num_players){
     broadcast("MESSAGE Trovate un forziere con dell'equipaggiamento! Forse un regalo, voluto o meno, da parte degli esploratori prima di voi!\n");
     char treasure_found_message[128];
     char decision_buffer[128];
@@ -315,7 +322,7 @@ void treasure_encounter3(Player *players, int num_players){
 
 
         } else if (reward_type == 1) {
-            Armor found_armor = player_armors[rand() % 2];
+            Armor found_armor = armors[rand() % 2];
             
             sprintf(treasure_found_message, "MAKE_INVENTORY_DECISION Hai trovato un'armatura: %s def: %d\n", found_armor.name, found_armor.defense);
             send(players[i].socket_fd, treasure_found_message, strlen(treasure_found_message), 0);
@@ -330,7 +337,7 @@ void treasure_encounter3(Player *players, int num_players){
             broadcast_player_info(&players[i]);
 
         } else {
-            Item found_item = player_items[rand() % 1];
+            Item found_item = items[rand() % 1];
             sprintf(treasure_found_message, "MAKE_INVENTORY_DECISION Hai trovato un oggetto: %s\n", found_item.name);
             send(players[i].socket_fd, treasure_found_message, strlen(treasure_found_message), 0);
             recv(players[i].socket_fd, decision_buffer, sizeof(decision_buffer) - 1, 0); // Aspettiamo la decisione del client
@@ -345,11 +352,11 @@ void treasure_encounter3(Player *players, int num_players){
 
         }
     }
-
+    return true;
 }
 
 
-void trap_encounter(Player *players, int num_players){
+bool trap_encounter(Player *players, int num_players){
     broadcast("MESSAGE Attenzione! Avete attivato una trappola!\n");
     char player_info_message[128];
 
@@ -367,6 +374,12 @@ void trap_encounter(Player *players, int num_players){
     for (int i = 0; i < connected_count; i++) {
         broadcast_player_info(&players[i]);
     }
+
+    bool room_cleared = !(are_all_players_dead(players, num_players));
+    if (room_cleared)
+        return false;
+    else
+        return true;
 }
 
 void melee_attack(void *attacker, void *target) {
@@ -448,30 +461,31 @@ void health_potion_function(Player *p) {
 
 // MAKE_TURN_DECISION
 void player_turn(Player *p, Monster *monsters, int num_monsters) {
-    if (p->hp <= 0) return;
+    send(p->socket_fd, "MAKE_TURN_DECISION\n", strlen("MAKE_TURN_DECISION\n"), 0);
+    
+    char decision_buffer[128] = {0};
+    recv(p->socket_fd, decision_buffer, sizeof(decision_buffer) - 1, 0);
 
-    printf("\nTurno del Giocatore %d\n", p->id);
+    //vediamo prima se il client ha mandato una decisione valida (inizia per SEND_DECISION), poi vediamo la stringa successiva se è MOVE, ATTACK o USE_ITEM
+    if (strncmp(decision_buffer, "SEND_DECISION ", 14) == 0) {
 
-    int action = rand() % 3;
+        char *action_str = decision_buffer + 14;
+        action_str[strcspn(action_str, "\r\n")] = 0; // Rimuove newline finale
 
-    switch (action) {
-        case 0:
+        if (strcmp(action_str, "MOVE") == 0) {
             move_player(p);
-            break;
 
-        case 1: {
-            int target = rand() % num_monsters;
-
-            if (p->weapon && p->weapon->attack) {
-                p->weapon->attack(p, &monsters[target]);
-            }
-            break;
-        }
-
-        case 2:
+        } else if (strcmp(action_str, "ATTACK") == 0) {
+            //da vedere come passare il target scelto dal client.
+        } else if (strcmp(action_str, "USE_ITEM") == 0) {
             use_item(p);
-            break;
+        } else {
+            printf("[DEBUG] Azione non riconosciuta: %s\n", action_str);
+            return;
+        }
+    
     }
+
 }
 
 void monster_attack(void *attacker, void *target) {
@@ -498,8 +512,6 @@ void monster_attack(void *attacker, void *target) {
 }
 
 void monster_turn(Monster *m, Player *players, int num_players) {
-    if (m->hp <= 0) return;
-
     printf("\nTurno del mostro %s\n", m->name);
 
     int target = rand() % num_players;
@@ -518,45 +530,54 @@ void monster_turn(Monster *m, Player *players, int num_players) {
     }
 }
 
-void combat_encounter(Player *players, int num_players) {
+bool combat_encounter(Player *players, int num_players) {
     broadcast("MESSAGE Appena entrati nella stanza vi trovate davanti dei pericolosi mostri, l'unica alternativa è combatterli!\n");
-
+    
+    int num_monsters = 2;
     Monster monsters[2] = {
-        {"Goblin", 50, 0, 0, &weapons[2], NULL},
-        {"Orc", 80, 2, 2, &weapons[2], NULL}
+        {"Skeleton", 50, true, 300, 0, &monster_weapons[2], NULL},
+        {"Orc", 80, true, 300, 50, &monster_weapons[2], NULL}
     };
 
-    int num_monsters = 2;
+    //broadcast_monster_info
+    for (int i = 0; i < num_monsters; i++) {
+        broadcast_monster_info(&monsters[i]);
+    }
+
     int turn = 0;
-    char* message; 
+    char message[256]; 
 
     while (1) {
-        sprintf(message, "\n=== TURNO %d ===\n", turn++);
+        sprintf(message, "=== ROUND %d ===\n", turn++);
+        broadcast(message);
 
         for (int i = 0; i < num_players; i++)
-            player_turn(&players[i], monsters, num_monsters);
+            if (players[i].alive)
+                player_turn(&players[i], monsters, num_monsters);
 
-        int alive_monsters = 0;
-        for (int i = 0; i < num_monsters; i++)
-            if (monsters[i].hp > 0) alive_monsters++;
-
-        if (alive_monsters == 0) {
-            broadcast("MESSAGE I giocatori vincono!\n");
-            break;
+        bool monsters_defeated = are_all_monsters_dead(monsters, num_monsters);
+        if (monsters_defeated) {
+            broadcast("MESSAGE L'ultimo mostro finisce a terra e tirate tutti un sospiro di sollievo... senza abbassare la guardia\n");
+            return true;
         }
 
         for (int i = 0; i < num_monsters; i++)
-            monster_turn(&monsters[i], players, num_players);
+            if (monsters[i].alive)
+                monster_turn(&monsters[i], players, num_players);
 
-        int alive_players = 0;
-        for (int i = 0; i < num_players; i++)
-            if (players[i].hp > 0) alive_players++;
-
-        if (alive_players == 0) {
+        bool players_defeated = are_all_players_dead(players, num_players);
+        if (players_defeated) {
             broadcast("MESSAGE I mostri vincono!\n");
-            break;
+            return false;
         }
     }
+
+    reset_players_position(players);
+
+    for (int i = 0; i < connected_count; i++) {
+        broadcast_player_info(&players[i]);
+    }
+
 }
 
 void boss_aoe_attack(Monster *boss, Player *players, int num_players) {
@@ -608,14 +629,15 @@ void boss_turn(Monster *boss, Player *players, int num_players) {
     }
 }
 
-void boss_encounter(Player *players, int num_players) {
+bool boss_encounter(Player *players, int num_players) {
     printf("BOSS ENCOUNTER!\n");
 
     Monster boss = {
         "Dragon",
         200,   // tanti HP
+        true,
         2, 2,
-        &weapons[3],
+        &monster_weapons[3],
         NULL
     };
 
@@ -632,7 +654,7 @@ void boss_encounter(Player *players, int num_players) {
         // Controllo vittoria
         if (boss.hp <= 0) {
             printf("Il boss è stato sconfitto!\n");
-            break;
+            return true;
         }
 
         // TURNO BOSS
@@ -646,7 +668,7 @@ void boss_encounter(Player *players, int num_players) {
 
         if (alive_players == 0) {
             printf("Il boss ha sconfitto tutti i giocatori!\n");
-            break;
+            return false;
         }
     }
 }

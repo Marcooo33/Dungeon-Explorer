@@ -26,21 +26,63 @@ void broadcast_player_info(Player *player) {
             player->x, 
             player->y,
             player->gold,
-            player->weapon ? player->weapon->name : "Nessuna",
+            player->weapon ? player->weapon->name : "None",
             player->weapon ? player->weapon->damage : 0,
             player->weapon ? player->weapon->range : 0,
-            player->armor ? player->armor->name : "Nessuna",
+            player->armor ? player->armor->name : "None",
             player->armor ? player->armor->defense : 0,
-            player->item ? player->item->name : "Nessuno"
+            player->item ? player->item->name : "None"
     );
     printf("[DEBUG] Broadcast player info: %s", player_info_message);
     broadcast(player_info_message);
 }
 
-void default_encounter() {
+void broadcast_monster_info(Monster *monster) {
+    char monster_info_message[128];
+    sprintf(monster_info_message, "MONSTER_INFO %s %d %d %d %d %s:%d:%d %s:%d\n",
+            monster->name,
+            monster->hp,
+            monster->alive,
+            monster->x,
+            monster->y,
+            monster->weapon ? monster->weapon->name : "None",
+            monster->weapon ? monster->weapon->damage : 0,
+            monster->weapon ? monster->weapon->range : 0,
+            monster->armor ? monster->armor->name : "None",
+            monster->armor ? monster->armor->defense : 0
+    );
+    
+    printf("[DEBUG] Broadcast monster info: %s", monster_info_message);
+    broadcast(monster_info_message);
+    
+}
+
+bool are_all_players_dead(Player *players, int num_players) {
+    for (int i = 0; i < num_players; i++) {
+        if (players[i].alive) return false;
+    }
+    return true;
+}
+
+bool are_all_monsters_dead(Monster *monsters, int num_monsters) {
+    for (int i = 0; i < num_monsters; i++) {
+        if (monsters[i].alive) return false;
+    }
+    return true;
+}
+
+void reset_players_position(Player *player) {
+    for (int i = 0; i < connected_count; i++) {
+        player[i].x = 0;
+        player[i].y = i * 50;
+    }
+}
+
+bool default_encounter() {
     // Default encounter function, can be overridden by specific room types
     sleep(2); // Simula un incontro che dura 2 secondi
     printf("You have entered in a room\n");
+    return true;
 }
 
 // (2) Mock funzione JSON

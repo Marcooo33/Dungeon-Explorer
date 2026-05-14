@@ -13,20 +13,20 @@ typedef struct Room Room;
 typedef struct Player Player; 
 typedef struct Monster Monster; 
 
-typedef void (*EncounterFunction)(Player *players, int num_players); // Define a function pointer type for room encounters
+typedef bool (*EncounterFunction)(Player *players, int num_players); // Define a function pointer type for room encounters
 typedef void (*AttackFunction)(void *attacker, void *target);
 typedef void (*ItemFunction)(Player *player); // Define a function pointer type for item usage
 
 
-void treasure_encounter1(Player *players, int num_players);
-void treasure_encounter2(Player *players, int num_players);
-void treasure_encounter3(Player *players, int num_players);
+bool treasure_encounter1(Player *players, int num_players);
+bool treasure_encounter2(Player *players, int num_players);
+bool treasure_encounter3(Player *players, int num_players);
 
 
-void trap_encounter(Player *players, int num_players);
+bool trap_encounter(Player *players, int num_players);
 
-void combat_encounter(Player *players, int num_players);
-void boss_encounter(Player *players, int num_players);
+bool combat_encounter(Player *players, int num_players);
+bool boss_encounter(Player *players, int num_players);
 
 void melee_attack(void *attacker, void *target);
 void ranged_attack(void *attacker, void *target);
@@ -71,6 +71,7 @@ typedef struct Monster {
     // game info
     char *name;
     int hp;
+    bool alive;
     int x, y;
 
     Weapon *weapon;
