@@ -402,6 +402,7 @@ void melee_attack(void *attacker, void *target) {
     if (damage < 0) damage = 0;
 
     m->hp -= damage;
+    if (m->hp < 0) m->hp = 0; // Evita HP negativi
 
     printf("Il Giocatore %d colpisce %s per %d danni (HP nemico: %d)\n",
            p->id, m->name, damage, m->hp);
@@ -425,6 +426,7 @@ void ranged_attack(void *attacker, void *target) {
 
     int damage = p->weapon->damage;
     m->hp -= damage;
+    if (m->hp < 0) m->hp = 0; // Evita HP negativi
 
     printf("Il Giocatore %d attacca a distanza %s per %d danni (HP: %d)\n",
            p->id, m->name, damage, m->hp);
@@ -459,6 +461,27 @@ void health_potion_function(Player *p) {
 }
 
 // MAKE_TURN_DECISION
+
+bool is_tile_occupied_by_player(int x, int y, Player *players, int num_players) {
+    for (int i = 0; i < num_players; i++) {
+        if (players[i].alive && players[i].x == x && players[i].y == y) {
+            return true;
+        }
+    }
+    return false;
+}
+
+// Funzione per controllare se una coordinata è occupata da un mostro vivo
+bool is_tile_occupied_by_monster(int x, int y, Monster *monsters, int num_monsters) {
+    for (int i = 0; i < num_monsters; i++) {
+        if (monsters[i].alive && monsters[i].x == x && monsters[i].y == y) {
+            return true;
+        }
+    }
+    return false;
+}
+
+
 void player_turn(Player *p, Monster *monsters, int num_monsters) {
     send(p->socket_fd, "MAKE_TURN_DECISION\n", strlen("MAKE_TURN_DECISION\n"), 0);
     
@@ -481,11 +504,11 @@ void player_turn(Player *p, Monster *monsters, int num_monsters) {
     if (strncmp(action_str, "MOVE ", 5) == 0) {
         int x, y;
         if (sscanf(action_str + 5, "%d %d", &x, &y) == 2) {
-            move_player(p, x, y);
+            if (!is_tile_occupied_by_monster(x, y, monsters, num_monsters))
+                move_player(p, x, y);
         } else {
             printf("[DEBUG] MOVE non valido: %s\n", action_str);
         }
-
     } else if (strncmp(action_str, "ATTACK ", 7) == 0) {
         int target_id;
         if (sscanf(action_str + 7, "%d", &target_id) == 1) {
@@ -535,6 +558,7 @@ void monster_attack(void *attacker, void *target) {
     if (damage < 0) damage = 0;
 
     p->hp -= damage;
+    if (p->hp < 0) p->hp = 0;
 
     printf("%s attacca il Giocatore %d per %d danni (HP: %d)\n",
            m->name, p->id, damage, p->hp);
@@ -544,21 +568,39 @@ void monster_turn(Monster *m, Player *players, int num_players) {
     printf("\nTurno del mostro %s\n", m->name);
 
     int target = rand() % num_players;
-
     int dist = distance(m->x, m->y, players[target].x, players[target].y);
 
     if (dist > m->weapon->range) {
-        m->x += (players[target].x > m->x) ? 1 : -1;
-        m->y += (players[target].y > m->y) ? 1 : -1;
+        // Avvicinamento intelligente (non fa movimenti a caso se è già allineato)
+        if (dist > m->weapon->range) {
+            int next_x = m->x;
+            int next_y = m->y;
 
-        printf("%s si avvicina\n", m->name);
+            // Calcola dove vuole andare il mostro
+            if (players[target].x > m->x) next_x += 50;
+            else if (players[target].x < m->x) next_x -= 50;
+
+            if (players[target].y > m->y) next_y += 50;
+            else if (players[target].y < m->y) next_y -= 50;
+
+            // Applica i limiti mappa
+            if (next_x < 0) next_x = 0;
+            if (next_x > 450) next_x = 450;
+            if (next_y < 0) next_y = 0;
+            if (next_y > 200) next_y = 200;
+
+            // Si muove solo se non schiaccia un giocatore!
+            if (!is_tile_occupied_by_player(next_x, next_y, players, num_players)) {
+                m->x = next_x;
+                m->y = next_y;
+                printf("%s si avvicina a (%d, %d)\n", m->name, m->x, m->y);
+            }
+        } 
     } else {
-        if (m->weapon && m->weapon->attack) {
-            m->weapon->attack(m, &players[target]);
+            if (m->weapon && m->weapon->attack)
+                m->weapon->attack(m, &players[target]);
         }
-    }
 }
-
 bool combat_encounter(Player *players, int num_players) {
     broadcast("MESSAGE Appena entrati nella stanza vi trovate davanti dei pericolosi mostri, l'unica alternativa è combatterli!\n");
     
@@ -568,7 +610,6 @@ bool combat_encounter(Player *players, int num_players) {
         {1, "Orc", 80, true, 300, 50, &monster_weapons[2], NULL}
     };
 
-    //broadcast_monster_info
     for (int i = 0; i < num_monsters; i++) {
         broadcast_monster_info(&monsters[i]);
     }
@@ -580,22 +621,70 @@ bool combat_encounter(Player *players, int num_players) {
         sprintf(message, "MESSAGE === ROUND %d ===\n", turn++);
         broadcast(message);
 
-        for (int i = 0; i < num_players; i++)
-            if (players[i].alive)
+        // --- FASE 1: TURNI GIOCATORI ---
+        for (int i = 0; i < num_players; i++) {
+            if (players[i].alive) {
                 player_turn(&players[i], monsters, num_monsters);
+                broadcast_player_info(&players[i]);
 
-        bool monsters_defeated = are_all_monsters_dead(monsters, num_monsters);
-        if (monsters_defeated) {
+                // RISOLUZIONE IMMEDIATA MORTE MOSTRI
+                for (int j = 0; j < num_monsters; j++) {
+                    if (monsters[j].alive && monsters[j].hp <= 0) {
+                        monsters[j].alive = false;
+                        char msg[128];
+                        sprintf(msg, "MESSAGE Il mostro %s e' morto!\n", monsters[j].name);
+                        broadcast(msg);
+                    }
+                    // Aggiorniamo subito Godot prima che tocchi al prossimo giocatore
+                    broadcast_monster_info(&monsters[j]);
+                }
+
+                // Se tutti i mostri sono morti, interrompiamo i turni dei giocatori!
+                if (are_all_monsters_dead(monsters, num_monsters)) {
+                    break; 
+                }
+            }
+        }
+
+        // --- FASE 2: CONTROLLO VITTORIA ---
+        if (are_all_monsters_dead(monsters, num_monsters)) {
             broadcast("MESSAGE L'ultimo mostro finisce a terra e tirate tutti un sospiro di sollievo... senza abbassare la guardia\n");
+            
+            reset_players_position(players);
+            for (int i = 0; i < connected_count; i++) {
+                if (players[i].alive) broadcast_player_info(&players[i]);
+            }
             return true;
         }
 
-        for (int i = 0; i < num_monsters; i++)
-            if (monsters[i].alive)
+        // --- FASE 3: TURNI MOSTRI ---
+        for (int i = 0; i < num_monsters; i++) {
+            if (monsters[i].alive) {
+                sleep(1);
                 monster_turn(&monsters[i], players, num_players);
+                broadcast_monster_info(&monsters[i]);
 
-        bool players_defeated = are_all_players_dead(players, num_players);
-        if (players_defeated) {
+                // RISOLUZIONE IMMEDIATA MORTE GIOCATORI
+                for (int j = 0; j < num_players; j++) {
+                    if (players[j].alive && players[j].hp <= 0) {
+                        players[j].alive = false;
+                        char msg[64];
+                        sprintf(msg, "MESSAGE Il Giocatore %d e' morto!\n", players[j].id);
+                        broadcast(msg);
+                    }
+                    // Aggiorniamo subito Godot per far sparire il giocatore o calare gli HP
+                    broadcast_player_info(&players[j]);
+                }
+
+                // Se tutti i giocatori muoiono, inutile far attaccare gli altri mostri
+                if (are_all_players_dead(players, num_players)) {
+                    break;
+                }
+            }
+        }
+
+        // --- FASE 4: CONTROLLO SCONFITTA ---
+        if (are_all_players_dead(players, num_players)) {
             broadcast("MESSAGE I mostri vincono!\n");
             return false;
         }
@@ -622,6 +711,7 @@ void boss_aoe_attack(Monster *boss, Player *players, int num_players) {
         if (damage < 0) damage = 0;
 
         players[i].hp -= damage;
+        if (players[i].hp < 0) players[i].hp = 0;
 
         printf("Il Giocatore %d subisce %d danni (HP: %d)\n",
                players[i].id,

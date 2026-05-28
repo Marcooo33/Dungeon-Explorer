@@ -31,6 +31,14 @@ extends Node2D
 # Called when the node enters the scene tree for the first time.a
 func _ready() -> void:
 	GameManager.load_room.connect(_on_loading_room)
+	
+	# Inietta i riferimenti della scena dentro il GameManager globale
+	GameManager.room_container = $RoomContainer
+	GameManager.players_container = $PlayersContainer
+	GameManager.monsters_container = $MonstersContainer
+	GameManager.hud_top = $HudTop
+	GameManager.hud_bottom = $HudBottom
+	
 	var room_instance = starting_room.instantiate()
 	room_container.add_child(room_instance)
 

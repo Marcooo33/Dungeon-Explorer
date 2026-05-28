@@ -2,14 +2,10 @@
 
 [ext_resource type="Script" uid="uid://dp4rvhlvyt464" path="res://scenes/game/game.gd" id="1_klkup"]
 [ext_resource type="PackedScene" uid="uid://br63kqq0tdjyn" path="res://scenes/ui/hudTop.tscn" id="2_m44fu"]
-[ext_resource type="Script" uid="uid://y7jvm16tr7mu" path="res://scenes/GameManager.gd" id="2_vrspl"]
 [ext_resource type="PackedScene" uid="uid://mc6clmxdk6xg" path="res://scenes/ui/HudBottom.tscn" id="4_7qcb4"]
 
 [node name="Game" type="Node2D" unique_id=464386139]
 script = ExtResource("1_klkup")
-
-[node name="GameManager" type="Node2D" parent="." unique_id=1380884378]
-script = ExtResource("2_vrspl")
 
 [node name="RoomContainer" type="Node2D" parent="." unique_id=211479410]
 

@@ -6,8 +6,8 @@
 #define MAX_PLAYERS 4
 #define MAX_DOORS 4
 
-#define SHORT_RANGE 1
-#define LONG_RANGE 3
+#define SHORT_RANGE 50
+#define LONG_RANGE 150
 
 typedef struct Room Room; 
 typedef struct Player Player; 

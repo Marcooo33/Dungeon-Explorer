@@ -3,14 +3,14 @@ extends Node2D
 # Caricamento della scena del giocatore
 @onready var player_scene = preload("res://characters/player/player.tscn")
 @onready var monster_scene = preload("res://characters/monster/Monster.tscn")
-@onready var players_container = get_parent().get_node_or_null("PlayersContainer")
-@onready var monsters_container = get_parent().get_node_or_null("MonstersContainer")
+@onready var players_container: Node2D
+@onready var monsters_container: Node2D
 
 # Riferimento all'HUD, al RoomContainer, HudBottom e al nuovo PlayersContainer
 # get_parent() serve perché GameManager è fratello di questi nodi
-@onready var hud_top = get_parent().get_node_or_null("HudTop")
-@onready var room_container = get_parent().get_node_or_null("RoomContainer")
-@onready var hud_bottom = get_parent().get_node_or_null("HudBottom")
+@onready var hud_top: CanvasLayer 
+@onready var room_container: Node2D
+@onready var hud_bottom: CanvasLayer
 
 
 signal load_room(coordinate)
@@ -76,12 +76,17 @@ func _on_game_data_received(cmd: String, args: Array):
 				_handle_make_inventory_decision()
 			
 		"MAKE_TURN_DECISION":
-			pass
+			_handle_make_turn_decision(args)
 		
 		"LOAD_ROOM":
 			if args.size() == 1:
 				var directions: String = args[0]
 				_handle_loading_room(directions)
+				
+		"GAME_OVER":
+			_show_message_popup("TUTTI I GIOCATORI SONO MORTI!\nGAME OVER")
+			if hud_bottom:
+				hud_bottom.hide() # Nasconde i bottoni delle azioni
 				
 	# Aggiorna l'interfaccia ad ogni pacchetto ricevuto
 	if hud_top and hud_top.has_method("update_display"):
@@ -134,6 +139,13 @@ func _remove(args):
 func _handle_player_info(args):
 	var id = args[0].to_int()
 	var hp = args[1].to_int()
+	if hp <= 0:
+		if players_nodes.has(id):
+			if is_instance_valid(players_nodes[id]):
+				players_nodes[id].queue_free() # Rimuove il nodo dallo schermo
+			players_nodes.erase(id)
+		return
+	
 	var pos = Vector2(args[2].to_float(), args[3].to_float())
 	var gold = args[4].to_int()
 	
@@ -170,14 +182,12 @@ func _handle_player_info(args):
 	
 	
 func _handle_monster_info(args: Array):
-	# Formato atteso: [nome, hp, alive, x, y, arma_info, armatura_info]
-	if args.size() < 7:
-		return
 
-	var m_name = args[0]
-	var m_hp = args[1].to_int()
-	var m_alive = args[2] == "1"
-	var m_pos = Vector2(args[3].to_float() * 32, args[4].to_float() * 32) # Assumendo tile da 32px
+	var m_id = args[0]
+	var m_name = args[1]
+	var m_hp = args[2].to_int()
+	var m_alive = args[3] == "1"
+	var m_pos = Vector2(args[4].to_float(), args[5].to_float()) # Assumendo tile da 32px
 	var m_armor_data = args[6] # "armatura:difesa"
 
 	# Se il mostro non esiste ancora, lo creiamo
@@ -203,6 +213,7 @@ func _handle_monster_info(args: Array):
 	if not m_alive:
 		if monster_node.has_method("die"):
 			monster_node.die()
+			monster_node.queue_free() # Rimuove fisicamente il nodo dallo schermo
 		monsters_nodes.erase(m_name) # Lo togliamo dal dizionario dopo la morte
 	
 	
@@ -230,6 +241,13 @@ func _handle_make_inventory_decision():
 		hud_bottom.show_inventory_decision_menu()
 	else:
 		print("ATTENZIONE: Nodo HudBottom non trovato o metodo display_decision mancante!")
+		
+		
+func _handle_make_turn_decision(args: Array):
+	if hud_bottom and hud_bottom.has_method("show_turn_decision_menu"):
+		hud_bottom.show_turn_decision_menu()
+	else:
+		print("ATTENZIONE: Nodo HudBottom non trovato o metodo show_turn_decision_menu mancante!")
 
 func _handle_loading_room(directions: String ): 
 	load_room.emit(directions)
