@@ -5,6 +5,7 @@
 #include <arpa/inet.h>
 #include <poll.h>
 #include <stdbool.h>
+#include <time.h>
 #include "game.h"
 #include "gameUtils.h"
 
@@ -85,6 +86,8 @@ int main(int argc, char *argv[]) {
     printf("[GAME %s] Ricevuti %d socket\n", game_code, connected_count);
     broadcast("START_GAME\n");
     sleep(3);
+
+    srand(time(NULL));
 
     // Inviamo a ciascun client il proprio ID
     char specific_client_msg[64];
@@ -283,14 +286,15 @@ bool treasure_encounter1(Player *players, int num_players){
     for (int i = 0; i < num_players; i++) {
         int gold_found = rand() % 50 + 10; // tra 10 e 59
         players[i].gold += gold_found;
-        sprintf(treasure_found_message, "MESSAGE Congratulazioni! La fortuna vi arride. Avete trovato un ricco tesoro! Oro trovato: %d\n", gold_found);
+        sprintf(treasure_found_message, "MESSAGE Oro trovato: %d\n", gold_found);
         send(players[i].socket_fd, treasure_found_message, strlen(treasure_found_message), 0);
     }
     
-    char player_info_message[128];
-    for (int i = 0; i < connected_count; i++) {
+    printf("sono qui\n");
+    for (int i = 0; i < num_players; i++) {
         broadcast_player_info(&players[i]);
     }
+    printf("sono dopo il broadcast\n");
     return true;
 }
 
@@ -312,7 +316,7 @@ bool treasure_encounter3(Player *players, int num_players){
 
             sprintf(treasure_found_message, "MAKE_INVENTORY_DECISION Hai trovato un'arma: %s atk: %d range: %d\n", found_weapon.name, found_weapon.damage, found_weapon.range);
             send(players[i].socket_fd, treasure_found_message, strlen(treasure_found_message), 0);
-            recv(players[i].socket_fd, decision_buffer, sizeof(decision_buffer) - 1, 0); // Aspettiamo la decisione del client
+            recv(players[i].socket_fd, decision_buffer, sizeof(decision_buffer), 0); // Aspettiamo la decisione del client
 
             if(strncmp(decision_buffer, "SEND_DECISION T", 15) == 0) {
                 printf("[DEBUG] Trovata arma: %s, danno: %d, range: %d\n", found_weapon.name, found_weapon.damage, found_weapon.range);
@@ -327,7 +331,7 @@ bool treasure_encounter3(Player *players, int num_players){
             
             sprintf(treasure_found_message, "MAKE_INVENTORY_DECISION Hai trovato un'armatura: %s def: %d\n", found_armor.name, found_armor.defense);
             send(players[i].socket_fd, treasure_found_message, strlen(treasure_found_message), 0);
-            recv(players[i].socket_fd, decision_buffer, sizeof(decision_buffer) - 1, 0); // Aspettiamo la decisione del client
+            recv(players[i].socket_fd, decision_buffer, sizeof(decision_buffer), 0); // Aspettiamo la decisione del client
 
             if (strncmp(decision_buffer, "SEND_DECISION T", 15) == 0)
             {
@@ -341,7 +345,7 @@ bool treasure_encounter3(Player *players, int num_players){
             Item found_item = items[rand() % 1];
             sprintf(treasure_found_message, "MAKE_INVENTORY_DECISION Hai trovato un oggetto: %s\n", found_item.name);
             send(players[i].socket_fd, treasure_found_message, strlen(treasure_found_message), 0);
-            recv(players[i].socket_fd, decision_buffer, sizeof(decision_buffer) - 1, 0); // Aspettiamo la decisione del client
+            recv(players[i].socket_fd, decision_buffer, sizeof(decision_buffer), 0); // Aspettiamo la decisione del client
 
             if (strncmp(decision_buffer, "SEND_DECISION T", 15) == 0)
             {
@@ -426,12 +430,9 @@ void ranged_attack(void *attacker, void *target) {
            p->id, m->name, damage, m->hp);
 }
 
-void move_player(Player *p) {
-    int dx = (rand() % 3) - 1;
-    int dy = (rand() % 3) - 1;
-
-    p->x += dx;
-    p->y += dy;
+void move_player(Player *p, int x, int y) {
+    p->x = x;
+    p->y = y;
 
     printf("Il Giocatore %d si muove a (%d, %d)\n", p->id, p->x, p->y);
 }
@@ -462,26 +463,56 @@ void player_turn(Player *p, Monster *monsters, int num_monsters) {
     send(p->socket_fd, "MAKE_TURN_DECISION\n", strlen("MAKE_TURN_DECISION\n"), 0);
     
     char decision_buffer[128] = {0};
-    recv(p->socket_fd, decision_buffer, sizeof(decision_buffer) - 1, 0);
+    int bytes = recv(p->socket_fd, decision_buffer, sizeof(decision_buffer) - 1, 0);
+    if (bytes <= 0) {
+        printf("[DEBUG] Nessuna decisione ricevuta per il giocatore %d\n", p->id);
+        return;
+    }
 
-    //vediamo prima se il client ha mandato una decisione valida (inizia per SEND_DECISION), poi vediamo la stringa successiva se è MOVE, ATTACK o USE_ITEM
-    if (strncmp(decision_buffer, "SEND_DECISION ", 14) == 0) {
+    decision_buffer[strcspn(decision_buffer, "\r\n")] = 0; // Rimuove newline finale
 
-        char *action_str = decision_buffer + 14;
-        action_str[strcspn(action_str, "\r\n")] = 0; // Rimuove newline finale
+    if (strncmp(decision_buffer, "SEND_DECISION ", 14) != 0) {
+        printf("[DEBUG] Decisione non valida: %s\n", decision_buffer);
+        return;
+    }
 
-        if (strcmp(action_str, "MOVE") == 0) {
-            move_player(p);
+    char *action_str = decision_buffer + 14;
 
-        } else if (strcmp(action_str, "ATTACK") == 0) {
-            //da vedere come passare il target scelto dal client.
-        } else if (strcmp(action_str, "USE_ITEM") == 0) {
-            use_item(p);
+    if (strncmp(action_str, "MOVE ", 5) == 0) {
+        int x, y;
+        if (sscanf(action_str + 5, "%d %d", &x, &y) == 2) {
+            move_player(p, x, y);
         } else {
-            printf("[DEBUG] Azione non riconosciuta: %s\n", action_str);
-            return;
+            printf("[DEBUG] MOVE non valido: %s\n", action_str);
         }
-    
+
+    } else if (strncmp(action_str, "ATTACK ", 7) == 0) {
+        int target_id;
+        if (sscanf(action_str + 7, "%d", &target_id) == 1) {
+            if (target_id < 0 || target_id >= num_monsters) {
+                printf("[DEBUG] ATTACK target_id fuori range: %d\n", target_id);
+                return;
+            }
+            Monster *target = &monsters[target_id];
+            if (!target->alive) {
+                printf("[DEBUG] Mostro %d già morto\n", target_id);
+                return;
+            }
+            if (p->weapon && p->weapon->attack) {
+                p->weapon->attack(p, target);
+            } else {
+                printf("[DEBUG] Giocatore %d non ha un'arma valida\n", p->id);
+            }
+        } else {
+            printf("[DEBUG] ATTACK non valido: %s\n", action_str);
+        }
+
+    } else if (strcmp(action_str, "USE ITEM") == 0 || strcmp(action_str, "USE_ITEM") == 0) {
+        use_item(p);
+
+    } else {
+        printf("[DEBUG] Azione non riconosciuta: %s\n", action_str);
+        return;
     }
 
 }
@@ -628,22 +659,17 @@ void boss_turn(Monster *boss, Player *players, int num_players) {
 }
 
 bool boss_encounter(Player *players, int num_players) {
-    printf("BOSS ENCOUNTER!\n");
+    broadcast("MESSAGE Entrate in una stanza più grande delle altre, al centro vedete un enorme mostro che vi fissa con occhi pieni di odio... è il boss del dungeon!\n");
 
-    Monster boss = {
-        0,
-        "Dragon",
-        200,   // tanti HP
-        true,
-        2, 2,
-        &monster_weapons[3],
-        NULL
-    };
+    Monster boss = {0, "Boss", 200, true, 150, 50, &monster_weapons[3], NULL };
+    broadcast_monster_info(&boss);
 
-    int turn = 0;
+    int round = 0;
+    char message[256]; 
 
     while (1) {
-        printf("\n=== TURNO %d ===\n", turn++);
+        sprintf(message, "MESSAGE === ROUND %d ===\n", round++);
+        broadcast(message);
 
         // TURNI GIOCATORI
         for (int i = 0; i < num_players; i++) {
@@ -652,7 +678,7 @@ bool boss_encounter(Player *players, int num_players) {
 
         // Controllo vittoria
         if (boss.hp <= 0) {
-            printf("Il boss è stato sconfitto!\n");
+            broadcast("MESSAGE Il boss è stato sconfitto!\n");
             return true;
         }
 
@@ -660,13 +686,10 @@ bool boss_encounter(Player *players, int num_players) {
         boss_turn(&boss, players, num_players);
 
         // Controllo sconfitta
-        int alive_players = 0;
-        for (int i = 0; i < num_players; i++) {
-            if (players[i].hp > 0) alive_players++;
-        }
+        bool room_cleared = !(are_all_players_dead(players, num_players));
 
-        if (alive_players == 0) {
-            printf("Il boss ha sconfitto tutti i giocatori!\n");
+        if (room_cleared == false) {
+            broadcast("MESSAGE Il boss ha sconfitto tutti i giocatori!\n");
             return false;
         }
     }
