@@ -39,7 +39,8 @@ void broadcast_player_info(Player *player) {
 
 void broadcast_monster_info(Monster *monster) {
     char monster_info_message[128];
-    sprintf(monster_info_message, "MONSTER_INFO %s %d %d %d %d %s:%d:%d %s:%d\n",
+    sprintf(monster_info_message, "MONSTER_INFO %d %s %d %d %d %d %s:%d:%d %s:%d\n",
+            monster->id,
             monster->name,
             monster->hp,
             monster->alive,

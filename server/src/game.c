@@ -34,6 +34,7 @@ Item items[] = {
     {"Health_Potion", health_potion_function}
 };
 
+Weapon fists = {"Fists", 5, SHORT_RANGE, melee_attack};
 
 void init_players() {
     for (int i = 0; i < connected_count; i++) {
@@ -42,7 +43,7 @@ void init_players() {
         players[i].x = 0; // Posizione iniziale X
         players[i].y = i * 50; // Posizione iniziale Y
         players[i].gold = 0;
-        players[i].weapon = &(Weapon){"Fists", 5, SHORT_RANGE, melee_attack}; // Fists di default
+        players[i].weapon = &fists; // Fists di default
         players[i].armor = NULL;
         players[i].item = NULL;
     }
@@ -376,10 +377,7 @@ bool trap_encounter(Player *players, int num_players){
     }
 
     bool room_cleared = !(are_all_players_dead(players, num_players));
-    if (room_cleared)
-        return false;
-    else
-        return true;
+    return room_cleared;
 }
 
 void melee_attack(void *attacker, void *target) {
@@ -535,8 +533,8 @@ bool combat_encounter(Player *players, int num_players) {
     
     int num_monsters = 2;
     Monster monsters[2] = {
-        {"Skeleton", 50, true, 300, 0, &monster_weapons[2], NULL},
-        {"Orc", 80, true, 300, 50, &monster_weapons[2], NULL}
+        {0, "Skeleton", 50, true, 300, 0, &monster_weapons[2], NULL},
+        {1, "Orc", 80, true, 300, 50, &monster_weapons[2], NULL}
     };
 
     //broadcast_monster_info
@@ -548,7 +546,7 @@ bool combat_encounter(Player *players, int num_players) {
     char message[256]; 
 
     while (1) {
-        sprintf(message, "=== ROUND %d ===\n", turn++);
+        sprintf(message, "MESSAGE === ROUND %d ===\n", turn++);
         broadcast(message);
 
         for (int i = 0; i < num_players; i++)
@@ -633,6 +631,7 @@ bool boss_encounter(Player *players, int num_players) {
     printf("BOSS ENCOUNTER!\n");
 
     Monster boss = {
+        0,
         "Dragon",
         200,   // tanti HP
         true,

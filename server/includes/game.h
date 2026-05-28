@@ -69,6 +69,7 @@ typedef struct Player{
 
 typedef struct Monster {
     // game info
+    int id;
     char *name;
     int hp;
     bool alive;
