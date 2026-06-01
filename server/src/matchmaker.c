@@ -110,6 +110,12 @@ void *handle_client(void *arg){
         game_count++;
         
         pthread_mutex_unlock(&games_mutex);
+
+        char room_code_msg[64];
+        snprintf(room_code_msg, sizeof(room_code_msg), "ROOM_CODE %s\n", games[game_idx].code);
+        send(client_socket_fd, room_code_msg, strlen(room_code_msg), 0);
+        
+        broadcast_player_list(&games[game_idx]);
         
         handle_host_loop(game_idx);
     } 

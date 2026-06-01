@@ -1,8 +1,12 @@
 [gd_scene format=4 uid="uid://bj8687ybo8yhn"]
 
-[ext_resource type="Script" uid="uid://bplaxi4pxp5gm" path="res://scenes/lobby/LobbyManager.gd.gd" id="1_n4a6i"]
+[ext_resource type="Script" uid="uid://bplaxi4pxp5gm" path="res://scenes/lobby/LobbyManager.gd" id="1_n4a6i"]
 [ext_resource type="PackedScene" uid="uid://dcyh5g2cw53ky" path="res://scenes/lobby/Lobby_background.tscn" id="2_ndpok"]
 [ext_resource type="Script" uid="uid://dmfkkrlkgd1oj" path="res://scenes/camera_2d.gd" id="3_7dxqh"]
+[ext_resource type="FontFile" uid="uid://bddg2pa2n2t0j" path="res://assets/fonts/GrapeSoda.ttf" id="4_5c8lw"]
+
+[sub_resource type="LabelSettings" id="LabelSettings_5c8lw"]
+font_size = 14
 
 [node name="Lobby" type="Node2D" unique_id=1110511085]
 script = ExtResource("1_n4a6i")
@@ -17,7 +21,10 @@ script = ExtResource("3_7dxqh")
 
 [node name="MainMenu" type="Control" parent="." unique_id=863300638]
 layout_mode = 3
-anchors_preset = 0
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+grow_horizontal = 0
 
 [node name="JoinRequestDialog" type="ConfirmationDialog" parent="." unique_id=1462762029]
 oversampling_override = 1.0
@@ -28,7 +35,37 @@ dialog_text = "A new player wants to join"
 cancel_button_text = "Decline"
 
 [node name="StartButton" type="Button" parent="." unique_id=1091683554]
-offset_left = 317.0
-offset_top = -31.0
-offset_right = 413.0
-text = "Start Game"
+offset_left = 112.0
+offset_top = 129.0
+offset_right = 208.0
+offset_bottom = 160.0
+theme_override_fonts/font = ExtResource("4_5c8lw")
+text = "START"
+
+[node name="PlayerListContainer" type="PanelContainer" parent="." unique_id=1390612745]
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = 67.0
+offset_top = -2.0
+offset_right = 255.0
+offset_bottom = 109.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="PlayerLabel" type="Label" parent="PlayerListContainer" unique_id=1255454714]
+layout_mode = 2
+size_flags_horizontal = 4
+theme_override_fonts/font = ExtResource("4_5c8lw")
+theme_override_font_sizes/font_size = 14
+
+[node name="RoomCodeLabel" type="Label" parent="." unique_id=90079317]
+offset_left = 358.0
+offset_top = -35.0
+offset_right = 419.0
+offset_bottom = -7.0
+label_settings = SubResource("LabelSettings_5c8lw")
+horizontal_alignment = 1
+vertical_alignment = 1

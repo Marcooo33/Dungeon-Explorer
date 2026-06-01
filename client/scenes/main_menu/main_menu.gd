@@ -5,6 +5,7 @@ func _ready():
 	
 func _on_createGame_button_pressed() -> void:
 	NetworkManager.send_to_server("CREATE")
+	await get_tree().create_timer(0.5).timeout
 	get_tree().change_scene_to_file("res://scenes/lobby/Lobby.tscn")
 	
 func _on_joinGame_button_pressed() -> void:

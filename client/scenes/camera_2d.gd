@@ -1,7 +1,6 @@
 extends Camera2D
 
-# Supponiamo che la tua mappa sia larga 320 pixel nel mondo di gioco
-var map_width_pixels = 550.0 
+var map_width_pixels = 700.0 
 
 func _ready():
 	# Opzionale: connettiti all'evento di ridimensionamento della finestra 

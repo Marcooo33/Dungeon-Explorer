@@ -13,5 +13,6 @@ int find_free_player_slot(Game* game);
 bool wait_for_host_decision(Player* new_player);
 void print_info_game(int game_idx);
 void start_game(int game_idx);
+void broadcast_player_list(Game* game);
 
 #endif

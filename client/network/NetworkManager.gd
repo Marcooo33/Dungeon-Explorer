@@ -6,8 +6,11 @@ enum State {
 }
 
 var state := State.LOBBY
-
 var client := NetworkSocket.new()
+
+# --- VARIABILI DI STATO ---
+var current_room_code: String = ""
+var current_players: Array = []
 
 # ---------------- SIGNALS ----------------
 
@@ -17,6 +20,8 @@ signal join_request_received(player_id)
 signal join_accepted
 signal join_rejected
 signal error_received(msg: String)
+signal room_code_received(code: String)
+signal player_list_updated(players: Array)
 
 func _ready():
 	connect_to_server()
@@ -63,6 +68,15 @@ func _handle_lobby(cmd: String, args: Array):
 			state = State.GAME
 			get_tree().change_scene_to_file("res://scenes/game/Game.tscn")
 			game_found.emit()
+			
+		"ROOM_CODE":
+			if args.size() >= 1:
+				current_room_code = args[0]
+				room_code_received.emit(args[0])
+		
+		"PLAYER_LIST":
+			current_players = args
+			player_list_updated.emit(args)
 
 # ---------------- GAME ----------------
 

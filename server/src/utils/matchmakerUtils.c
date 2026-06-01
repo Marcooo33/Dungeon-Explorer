@@ -73,14 +73,24 @@ void handle_host_loop(int game_idx) {
                         games[game_idx].players[player_index].id = player_index;
                         games[game_idx].players[player_index].status = CONNECTED;
                         games[game_idx].num_players++;
-
                         pthread_mutex_unlock(&games_mutex);
                         // Fine sezione critica
 
                         printf("[MATCHMAKER] Giocatore %d accettato nella partita %s\n", player_index, games[game_idx].code);
                         
                         Player* accepted_player = &games[game_idx].players[player_index];
+                        
+                        // --- RIPRISTINATO COME PRIMA ---
+                        // Inviamo un semplice JOIN_ACCEPTED senza numero
                         send(accepted_player->socket_fd, "JOIN_ACCEPTED\n", 14, 0);
+
+                        // Inviamo il codice stanza al nuovo giocatore (necessario per non avere UI vuota)
+                        char room_code_msg[64];
+                        snprintf(room_code_msg, sizeof(room_code_msg), "ROOM_CODE %s\n", games[game_idx].code);
+                        send(accepted_player->socket_fd, room_code_msg, strlen(room_code_msg), 0);
+
+                        // Broadcast della lista a tutti (necessario per aggiornare l'host)
+                        broadcast_player_list(&games[game_idx]);
                     }
                 }
             } 
@@ -92,9 +102,7 @@ void handle_host_loop(int game_idx) {
 
                         // Sezione critica
                         pthread_mutex_lock(&games_mutex);
-
                         games[game_idx].players[player_index].status = DISCONNECTED;
-
                         pthread_mutex_unlock(&games_mutex);
                         // Fine sezione critica
 
@@ -111,13 +119,19 @@ void handle_host_loop(int game_idx) {
 
                     // Sezione critica
                     pthread_mutex_lock(&games_mutex);
-
                     games[game_idx].started = true;
-
                     pthread_mutex_unlock(&games_mutex);
                     // Fine sezione critica
 
                     printf("[MATCHMAKER] Richiesta di inzio per la partita %s\n", games[game_idx].code);
+                    
+                    // Avvisiamo tutti i client che il gioco inizia
+                    for (int i = 0; i < MAX_PLAYERS; i++) {
+                        if (games[game_idx].players[i].status == CONNECTED) {
+                            send(games[game_idx].players[i].socket_fd, "START_GAME\n", 11, 0);
+                        }
+                    }
+                    
                     start_game(game_idx);
                     return;
                     
@@ -299,16 +313,6 @@ void start_game(int game_idx){
         // Salviamo il PID all'interno della struct di gioco per tracciarlo nel monitor
         game->game_pid = pid;
 
-        // 🌟 NOTA IMPORTANTE MODIFICATA: Non chiudiamo i socket qui nel matchmaker e non impostiamo
-        // lo stato a DISCONNECTED, altrimenti il monitor non potrà rimandare il gruppo in Lobby!
-        /*
-        for (int i = 0; i < MAX_PLAYERS; i++) {
-            if (game->players[i].status == CONNECTED) {
-                close(game->players[i].socket_fd);
-                game->players[i].status = DISCONNECTED;
-            }
-        }
-        */
     } else {
         perror("posix_spawn fallita");
     }
@@ -334,7 +338,6 @@ void *game_monitor_loop(void *arg) {
                         
                         games[idx].started = false;
                         games[idx].game_pid = 0;
-                        // Nota: games[idx].num_players e i socket dei client rimangono attivi ed invariati!
 
                         // Avvisiamo tutti i client che sono di nuovo in lobby
                         for (int i = 0; i < MAX_PLAYERS; i++) {
@@ -343,12 +346,11 @@ void *game_monitor_loop(void *arg) {
                             }
                         }
 
-                        // Facciamo ripartire il thread dell'host che ascolta i comandi (START_GAME/ACCEPT/REJECT)
+                        // Facciamo ripartire il thread dell'host che ascolta i comandi
                         int *p_idx = malloc(sizeof(int));
                         if (p_idx != NULL) {
                             *p_idx = idx;
                             pthread_t tid;
-                            // Assicurati che 'host_loop_thread' o 'handle_host_loop' (adattato a thread) sia passabile qui
                             if (pthread_create(&tid, NULL, (void *(*)(void *))handle_host_loop, p_idx) == 0) {
                                 pthread_detach(tid);
                             } else {
@@ -383,4 +385,27 @@ void *game_monitor_loop(void *arg) {
         usleep(100000); // 100ms
     }
     return NULL;
+}
+
+// Funzione per inviare la lista aggiornata dei giocatori a tutti i client della stanza
+void broadcast_player_list(Game* game) {
+    char response[1024];
+    strcpy(response, "PLAYER_LIST");
+    
+    // Costruiamo la stringa con gli ID dei giocatori connessi
+    char temp[32];
+    for (int i = 0; i < MAX_PLAYERS; i++) {
+        if (game->players[i].status == CONNECTED) {
+            sprintf(temp, " %d", game->players[i].id);
+            strcat(response, temp);
+        }
+    }
+    strcat(response, "\n");
+
+    // Inviamo la stringa a tutti i giocatori connessi
+    for (int i = 0; i < MAX_PLAYERS; i++) {
+        if (game->players[i].status == CONNECTED) {
+            send(game->players[i].socket_fd, response, strlen(response), 0);
+        }
+    }
 }
