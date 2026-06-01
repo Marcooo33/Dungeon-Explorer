@@ -3,6 +3,8 @@
 [ext_resource type="Script" uid="uid://bm2i1rtly512g" path="res://characters/monster/monster.gd" id="1_edoki"]
 [ext_resource type="Texture2D" uid="uid://dei406v3lnn5r" path="res://assets/Pixel Crawler - Free Pack/Entities/Mobs/Orc Crew/Orc/Death/Death-Sheet.png" id="1_jj37m"]
 [ext_resource type="Texture2D" uid="uid://i1ge852wxn6k" path="res://assets/Pixel Crawler - Free Pack/Entities/Mobs/Orc Crew/Orc/Idle/Idle-Sheet.png" id="2_jk74b"]
+[ext_resource type="Texture2D" uid="uid://b4ggr6aevl372" path="res://assets/Pixel Crawler - Free Pack/Entities/Npc's/Knight/Death/Death-Sheet.png" id="2_t0fb6"]
+[ext_resource type="Texture2D" uid="uid://dlc5euvmwa24d" path="res://assets/Pixel Crawler - Free Pack/Entities/Npc's/Knight/Idle/Idle-Sheet.png" id="3_76gqc"]
 [ext_resource type="Texture2D" uid="uid://byvker1hffa5n" path="res://assets/Pixel Crawler - Free Pack/Entities/Mobs/Orc Crew/Orc - Rogue/Death/Death-Sheet.png" id="4_wk0qs"]
 [ext_resource type="Texture2D" uid="uid://b01onibvkh8qm" path="res://assets/Pixel Crawler - Free Pack/Entities/Mobs/Orc Crew/Orc - Rogue/Idle/Idle-Sheet.png" id="5_m7o3g"]
 [ext_resource type="Texture2D" uid="uid://dfttcgqdmlspv" path="res://assets/Pixel Crawler - Free Pack/Entities/Mobs/Orc Crew/Orc - Warrior/Death/Death-Sheet.png" id="6_em0yg"]
@@ -13,6 +15,46 @@
 [ext_resource type="Texture2D" uid="uid://c1y7uqn7hjcb5" path="res://assets/Pixel Crawler - Free Pack/Entities/Mobs/Skeleton Crew/Skeleton - Rogue/Idle/Idle-Sheet.png" id="11_76gqc"]
 [ext_resource type="Texture2D" uid="uid://bl2qtfgrhbinu" path="res://assets/Pixel Crawler - Free Pack/Entities/Mobs/Skeleton Crew/Skeleton - Warrior/Death/Death-Sheet.png" id="12_hqfgu"]
 [ext_resource type="Texture2D" uid="uid://bxjnangc6r844" path="res://assets/Pixel Crawler - Free Pack/Entities/Mobs/Skeleton Crew/Skeleton - Warrior/Idle/Idle-Sheet.png" id="13_b4xsv"]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_jr0hb"]
+atlas = ExtResource("2_t0fb6")
+region = Rect2(0, 0, 48, 32)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_00tdu"]
+atlas = ExtResource("2_t0fb6")
+region = Rect2(48, 0, 48, 32)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_n6tgp"]
+atlas = ExtResource("2_t0fb6")
+region = Rect2(96, 0, 48, 32)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_dmapk"]
+atlas = ExtResource("2_t0fb6")
+region = Rect2(144, 0, 48, 32)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_dbtmd"]
+atlas = ExtResource("2_t0fb6")
+region = Rect2(192, 0, 48, 32)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_yev1u"]
+atlas = ExtResource("2_t0fb6")
+region = Rect2(240, 0, 48, 32)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_y8m16"]
+atlas = ExtResource("3_76gqc")
+region = Rect2(0, 0, 32, 32)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_e68oa"]
+atlas = ExtResource("3_76gqc")
+region = Rect2(32, 0, 32, 32)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_f0j0i"]
+atlas = ExtResource("3_76gqc")
+region = Rect2(64, 0, 32, 32)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_hokji"]
+atlas = ExtResource("3_76gqc")
+region = Rect2(96, 0, 32, 32)
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_kxwdw"]
 atlas = ExtResource("1_jj37m")
@@ -266,6 +308,46 @@ region = Rect2(96, 0, 32, 32)
 animations = [{
 "frames": [{
 "duration": 1.0,
+"texture": SubResource("AtlasTexture_jr0hb")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_00tdu")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_n6tgp")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_dmapk")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_dbtmd")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_yev1u")
+}],
+"loop": false,
+"name": &"knight_death",
+"speed": 5.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_y8m16")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_e68oa")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_f0j0i")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_hokji")
+}],
+"loop": true,
+"name": &"knight_idle",
+"speed": 5.0
+}, {
+"frames": [{
+"duration": 1.0,
 "texture": SubResource("AtlasTexture_kxwdw")
 }, {
 "duration": 1.0,
@@ -517,6 +599,4 @@ script = ExtResource("1_edoki")
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="." unique_id=411824135]
 texture_filter = 1
 sprite_frames = SubResource("SpriteFrames_nh8vh")
-animation = &"skeleton_warrior_death"
-frame = 5
-frame_progress = 1.0
+animation = &"knight_death"

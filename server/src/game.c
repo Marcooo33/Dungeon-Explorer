@@ -113,7 +113,7 @@ int main(int argc, char *argv[]) {
     }
 
 
-    dungeon = generate_dungeon(5);
+    dungeon = generate_dungeon(2);
     int current_room_idx = 0; // Iniziamo nella prima stanza del dungeon
     int next_room_idx = -1; 
     char room_info_msg[256];
@@ -699,23 +699,50 @@ bool combat_encounter(Player *players, int num_players) {
 }
 
 void boss_aoe_attack(Monster *boss, Player *players, int num_players) {
-    printf("%s usa ATTACCO AD AREA!\n", boss->name);
+    broadcast("\nMESSAGE Il boss usa ATTACCO AD AREA!\n");
 
     for (int i = 0; i < num_players; i++) {
+        // Ignoriamo i giocatori già morti
         if (players[i].hp <= 0) continue;
 
-        int damage = boss->weapon->damage / 2;
+        // 1. Calcoliamo la distanza dal boss al giocatore
+        int dist = distance(boss->x, boss->y, players[i].x, players[i].y);
+        
+        int base_damage = boss->weapon->damage; // Danno base dell'arma del boss
+        int calculated_damage = 0;
 
+        // 2. Scaliamo i danni in base alle caselle (1 casella = 50px)
+        if (dist <= 50) {
+            // Stessa casella o 1 casella di distanza: 100% del danno
+            calculated_damage = base_damage;
+        } else if (dist <= 100) {
+            // 2 caselle di distanza: 60% del danno
+            calculated_damage = (int)(base_damage * 0.6);
+        } else if (dist <= 150) {
+            // 3 caselle di distanza: 30% del danno
+            calculated_damage = (int)(base_damage * 0.3);
+        } else {
+            // Fuori range (> 3 caselle): Nessun danno!
+            printf("Il Giocatore %d e' abbastanza lontano da schivare l'onda d'urto!\n", players[i].id);
+            continue; // Saltiamo al prossimo giocatore
+        }
+
+        // 3. Applichiamo la difesa dell'armatura
         int defense = players[i].armor ? players[i].armor->defense : 0;
-        damage -= defense;
-        if (damage < 0) damage = 0;
+        calculated_damage -= defense;
+        
+        // Evitiamo danni negativi se l'armatura supera il danno
+        if (calculated_damage < 0) calculated_damage = 0;
 
-        players[i].hp -= damage;
+        // 4. Sottraiamo i punti vita
+        players[i].hp -= calculated_damage;
         if (players[i].hp < 0) players[i].hp = 0;
 
-        printf("Il Giocatore %d subisce %d danni (HP: %d)\n",
+        // 5. Stampa a schermo i risultati (incluso il calcolo della distanza)
+        printf("Il Giocatore %d (a %dpx di distanza) subisce %d danni (HP: %d)\n",
                players[i].id,
-               damage,
+               dist,
+               calculated_damage,
                players[i].hp);
     }
 }
@@ -724,63 +751,137 @@ void boss_turn(Monster *boss, Player *players, int num_players) {
     if (boss->hp <= 0) return;
 
     printf("\nTurno del BOSS %s\n", boss->name);
+    char msg[128];
 
-    int action = rand() % 3;
+    // 1. Troviamo il giocatore vivo più vicino
+    int closest_player_idx = -1;
+    int min_dist = 999999; // Valore iniziale altissimo
 
-    // 0 = movimento, 1 = attacco singolo, 2 = skill
-    if (action == 0) {
-        int target = rand() % num_players;
-
-        boss->x += (players[target].x > boss->x) ? 1 : -1;
-        boss->y += (players[target].y > boss->y) ? 1 : -1;
-
-        printf("%s si muove\n", boss->name);
-    }
-    else if (action == 1) {
-        int target = rand() % num_players;
-
-        if (boss->weapon && boss->weapon->attack) {
-            boss->weapon->attack(boss, &players[target]);
+    for (int i = 0; i < num_players; i++) {
+        if (players[i].hp > 0 && players[i].alive) {
+            int d = distance(boss->x, boss->y, players[i].x, players[i].y);
+            if (d < min_dist) {
+                min_dist = d;
+                closest_player_idx = i;
+            }
         }
     }
-    else {
+
+    // Se tutti i giocatori sono già morti (non dovrebbe succedere grazie ai controlli precedenti, ma è una sicurezza)
+    if (closest_player_idx == -1) return;
+
+    // 2. Applichiamo la logica intelligente in base alla distanza del giocatore più vicino
+    
+    // CASO 1: Può attaccare da vicino (<= range della sua arma, presumibilmente 50px)
+    if (min_dist <= boss->weapon->range) {
+        
+        sprintf(msg, "MESSAGE Il Boss sferra un attacco ravvicinato contro il Giocatore %d!\n", players[closest_player_idx].id);
+        broadcast(msg);
+        
+        if (boss->weapon && boss->weapon->attack) {
+            boss->weapon->attack(boss, &players[closest_player_idx]);
+        }
+    } 
+    // CASO 2: Non arriva da vicino, ma c'è almeno un giocatore nel raggio dell'attacco ad area (<= 150px)
+    else if (min_dist <= 150) {
+        
+        broadcast("MESSAGE Il Boss sbatte i pugni a terra: ONDA D'URTO AD AREA!\n");
         boss_aoe_attack(boss, players, num_players);
+    } 
+    // CASO 3: Tutti i giocatori sono lontani, quindi si sposta verso quello più vicino
+    else {
+        
+        // Calcoliamo la direzione in cui muoverci verso il giocatore più vicino
+        if (players[closest_player_idx].x > boss->x) boss->x += 50;
+        else if (players[closest_player_idx].x < boss->x) boss->x -= 50;
+
+        if (players[closest_player_idx].y > boss->y) boss->y += 50;
+        else if (players[closest_player_idx].y < boss->y) boss->y -= 50;
+
+        
+        printf("%s si muove verso il giocatore %d\n", boss->name, players[closest_player_idx].id);
     }
 }
 
 bool boss_encounter(Player *players, int num_players) {
     broadcast("MESSAGE Entrate in una stanza più grande delle altre, al centro vedete un enorme mostro che vi fissa con occhi pieni di odio... è il boss del dungeon!\n");
 
-    Monster boss = {0, "Boss", 200, true, 150, 50, &monster_weapons[3], NULL };
+    Monster boss = {0, "Knight", 150, true, 200, 50, &monster_weapons[3], NULL };
     broadcast_monster_info(&boss);
 
-    int round = 0;
+    int turn = 0;
     char message[256]; 
 
     while (1) {
-        sprintf(message, "MESSAGE === ROUND %d ===\n", round++);
+        sprintf(message, "MESSAGE === ROUND %d ===\n", turn++);
         broadcast(message);
 
-        // TURNI GIOCATORI
+        // --- FASE 1: TURNI GIOCATORI ---
         for (int i = 0; i < num_players; i++) {
-            player_turn(&players[i], &boss, 1);
+            if (players[i].alive) {
+                player_turn(&players[i], &boss, 1); // Passiamo 1 come numero di mostri (il boss)
+                broadcast_player_info(&players[i]);
+
+                // RISOLUZIONE IMMEDIATA MORTE BOSS
+                if (boss.alive && boss.hp <= 0) {
+                    boss.alive = false;
+                    char msg[128];
+                    sprintf(msg, "MESSAGE Il boss %s è stato sconfitto!\n", boss.name);
+                    broadcast(msg);
+                }
+                
+                // Aggiorniamo sempre Godot con i nuovi HP del boss
+                broadcast_monster_info(&boss);
+
+                // Se il boss è morto, interrompiamo i turni dei giocatori successivi!
+                if (!boss.alive) {
+                    break; 
+                }
+            }
         }
 
-        // Controllo vittoria
-        if (boss.hp <= 0) {
-            broadcast("MESSAGE Il boss è stato sconfitto!\n");
+        // --- FASE 2: CONTROLLO VITTORIA ---
+        if (!boss.alive) {
+            broadcast("MESSAGE Il boss è stato sconfitto! Avete completato il dungeon!\n");
+            
+            reset_players_position(players);
+            for (int i = 0; i < connected_count; i++) {
+                if (players[i].alive) broadcast_player_info(&players[i]);
+            }
             return true;
         }
 
-        // TURNO BOSS
-        boss_turn(&boss, players, num_players);
+        // --- FASE 3: TURNO BOSS ---
+        if (boss.alive) {
+            sleep(1); // Piccola pausa per far capire ai giocatori che tocca al boss
+            
+            boss_turn(&boss, players, num_players); // boss_turn gestisce internamente boss_aoe_attack
+            broadcast_monster_info(&boss);
 
-        // Controllo sconfitta
-        bool room_cleared = !(are_all_players_dead(players, num_players));
+            // RISOLUZIONE IMMEDIATA MORTE GIOCATORI
+            for (int j = 0; j < num_players; j++) {
+                if (players[j].alive && players[j].hp <= 0) {
+                    players[j].alive = false;
+                    char msg[64];
+                    sprintf(msg, "MESSAGE Il Giocatore %d e' morto!\n", players[j].id);
+                    broadcast(msg);
+                }
+                // Aggiorniamo subito Godot per far sparire il giocatore o calare gli HP a schermo
+                broadcast_player_info(&players[j]);
+            }
+        }
 
-        if (room_cleared == false) {
-            broadcast("MESSAGE Il boss ha sconfitto tutti i giocatori!\n");
+        // --- FASE 4: CONTROLLO SCONFITTA ---
+        if (are_all_players_dead(players, num_players)) {
+            broadcast("MESSAGE Il boss ha annientato il gruppo! I mostri vincono!\n");
             return false;
         }
     }
+    
+    // Fallback di sicurezza a fine scontro
+    reset_players_position(players);
+    for (int i = 0; i < connected_count; i++) {
+        broadcast_player_info(&players[i]);
+    }
+    return true;
 }
