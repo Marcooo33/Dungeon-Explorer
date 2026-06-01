@@ -2,7 +2,6 @@
 #include <stdlib.h>
 #include <time.h>
 #include <string.h>
-#include <time.h>
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <pthread.h>
@@ -19,12 +18,12 @@ int game_count = 0;
 // Prototipi
 int start_new_game(char *out_code);
 void *handle_client(void *arg);
+void *game_monitor_loop(void *arg); // Dichiarazione del monitor globale
 
 int main() {
     srand(time(NULL));
     
-    // Evita processi zombie dai game server figli
-    signal(SIGCHLD, SIG_IGN);
+    // NOTA: Rimosso signal(SIGCHLD, SIG_IGN) per consentire a waitpid di intercettare i figli terminati
 
     int server_fd;
     struct sockaddr_in address;
@@ -51,7 +50,15 @@ int main() {
         exit(EXIT_FAILURE);
     }
 
-    printf("[MATCHMAKER] Server avviato sulla porta %d...\n", PORT);
+    // Avvio del Monitor Thread Globale (Gestore unico non bloccante per tutte le partite)
+    pthread_t monitor_tid;
+    if (pthread_create(&monitor_tid, NULL, game_monitor_loop, NULL) != 0) {
+        perror("Errore creazione monitor thread");
+        exit(EXIT_FAILURE);
+    }
+    pthread_detach(monitor_tid);
+
+    printf("[MATCHMAKER] Server avviato sulla porta %d e Monitor Thread attivo...\n", PORT);
 
     while (true) {
         struct sockaddr_in client_addr;

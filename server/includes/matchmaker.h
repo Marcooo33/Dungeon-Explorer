@@ -23,6 +23,7 @@ typedef struct {
     Player players[MAX_PLAYERS];
     int num_players;
     bool started;
+    pid_t game_pid;
 } Game;
 
 

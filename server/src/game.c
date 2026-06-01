@@ -126,12 +126,78 @@ int main(int argc, char *argv[]) {
         // 1) far svolgere encounter stanza
         if (current_room->completed == false){
             bool room_cleared = current_room->encounter(players, connected_count);
-            if (room_cleared)
+            bool end_game_triggered = false; // Flag per capire se siamo arrivati a fine partita
+
+            if (room_cleared) {
                 current_room->completed = true;
+
+                // Se la stanza completata era il BOSS, la partita è vinta e si attiva la fine gioco
+                if (strcmp(current_room->type, "BOSS") == 0) {
+                    printf("[GAME %s] Il Boss è stato sconfitto! Dungeon completato.\n", game_code);
+                    broadcast("MESSAGE COMPLIMENTI! Il Boss è caduto e il Dungeon è stato ripulito!\n");
+                    end_game_triggered = true;
+                }
+            }
             else {
+                // Se i giocatori perdono, la stanza fallisce e si attiva comunque la fine gioco
                 printf("[GAME %s] Tutti i giocatori sono morti nella stanza %d. Game Over.\n", game_code, current_room_idx);
+                broadcast("MESSAGE Siete stati sconfitti! Tutti i membri del gruppo sono morti.\n");
+                end_game_triggered = true;
+            }
+
+            // 🌟 GESTIONE FINE PARTITA: Sceglie SOLO il creatore della stanza (Host)
+            // Viene eseguita sia in caso di Vittoria del Boss sia in caso di Sconfitta totale
+            if (end_game_triggered) {
+                // Identifichiamo l'indice dell'Host (colui che ha id == 0)
+                int host_idx = -1;
+                for (int i = 0; i < connected_count; i++) {
+                    if (players[i].id == 0) {
+                        host_idx = i;
+                        break;
+                    }
+                }
+
+                if (host_idx != -1) {
+                    // Chiediamo la decisione SOLO all'Host
+                    char *decision_msg = "MAKE_END_DECISION Scegli: STAY per tornare in lobby con il gruppo, LEAVE per sciogliere la stanza.\n";
+                    send(players[host_idx].socket_fd, decision_msg, strlen(decision_msg), 0);
+                    
+                    // Notifichiamo gli altri giocatori che siamo in attesa dell'Host (usiamo un messaggio generico)
+                    char *wait_msg = "MESSAGE Partita terminata! In attesa della decisione del creatore della stanza...\n";
+                    for (int i = 0; i < connected_count; i++) {
+                        if (i != host_idx) {
+                            send(players[i].socket_fd, wait_msg, strlen(wait_msg), 0);
+                        }
+                    }
+
+                    // Attendiamo la risposta dell'Host con un timeout di 15 secondi
+                    struct pollfd host_fd;
+                    host_fd.fd = players[host_idx].socket_fd;
+                    host_fd.events = POLLIN;
+
+                    int activity = poll(&host_fd, 1, 15000); 
+                    if (activity > 0 && (host_fd.revents & POLLIN)) {
+                        char buffer[128] = {0};
+                        int bytes = recv(players[host_idx].socket_fd, buffer, sizeof(buffer) - 1, 0);
+                        
+                        if (bytes > 0) {
+                            buffer[strcspn(buffer, "\r\n")] = 0;
+
+                            if (strncmp(buffer, "SEND_DECISION STAY", 18) == 0) {
+                                broadcast("MESSAGE Il creatore ha scelto di continuare! Si torna in lobby.\n");
+                                broadcast("VICTORY\n"); // Manda il segnale ai client per caricare la scena della lobby
+                                sleep(2);
+                                return 10; // 👈 Codice speciale: dice al Matchmaker di salvare la lobby ed i player
+                            }
+                        }
+                    }
+                }
+
+                // Se l'Host sceglie LEAVE, va in timeout o si disconnette, la stanza si scioglie
+                printf("[GAME %s] Il creatore ha abbandonato o sciolto la stanza.\n", game_code);
                 broadcast("GAME_OVER\n");
-                break;
+                sleep(2);
+                return 1; // Uscita standard (scioglimento della sessione)
             }
         }
         

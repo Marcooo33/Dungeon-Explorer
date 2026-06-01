@@ -6,9 +6,15 @@
 #include <poll.h>
 #include <spawn.h>
 #include <fcntl.h>
+#include <sys/wait.h>
 
 #include "matchmaker.h"
 #include "matchmakerUtils.h"
+
+// Dichiarazione esterna per environ, necessaria per posix_spawn
+extern char **environ;
+
+pthread_mutex_t games_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 void generate_code(char *code) {
     const char charset[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
@@ -26,8 +32,12 @@ int find_game_by_code(const char *code) {
     return -1;
 }
 
-
-pthread_mutex_t games_mutex = PTHREAD_MUTEX_INITIALIZER;
+int find_game_by_pid(pid_t pid) {
+    for (int i = 0; i < game_count; i++) {
+        if (games[i].game_pid == pid) return i;
+    }
+    return -1;
+}
 
 void handle_host_loop(int game_idx) {
     Player* host = &games[game_idx].players[0];
@@ -42,7 +52,6 @@ void handle_host_loop(int game_idx) {
 
         if (valread <= 0) {
             printf("[MATCHMAKER] L'host si è disconnesso.\n");
-            // Qui potresti gestire l'eliminazione della partita o la chiusura dei socket
             break;
         }
 
@@ -91,7 +100,6 @@ void handle_host_loop(int game_idx) {
 
                         printf("[MATCHMAKER] Giocatore %d rifiutato nella partita %s\n", player_index, games[game_idx].code);
                         
-                        // NOTA: Qui dovresti notificare al socket del client che è stato rifiutato
                         Player* rejected_player = &games[game_idx].players[player_index];
                         send(rejected_player->socket_fd, "JOIN_REJECTED\n", 14, 0);
                     }
@@ -125,7 +133,6 @@ void handle_host_loop(int game_idx) {
         print_info_game(game_idx);
     }
 }
-
 
 void handle_join(int client_socket_fd) {
     bool accepted = false;
@@ -182,14 +189,12 @@ void handle_join(int client_socket_fd) {
             
             printf("[MATCHMAKER] Inviata richiesta di join all'host per la partita %s\n", join_code);
             
-            // SBLOCCHIAMO IL MUTEX PRIMA DI METTERCI IN ATTESA
             pthread_mutex_unlock(&games_mutex);
 
             accepted = wait_for_host_decision(new_player);
         }
     } 
 }
-
 
 int find_free_player_slot(Game* game) {
     for (int i = 1; i < MAX_PLAYERS; i++) { // Partiamo da 1 perché 0 è l'host
@@ -209,12 +214,10 @@ bool wait_for_host_decision(Player* new_player) {
         pthread_mutex_lock(&games_mutex);
         
         if (new_player->status == CONNECTED) {
-            // L'host ha accettato!
             decision_made = true;
             is_accepted = true;
         } 
         else if (new_player->status == DISCONNECTED) {
-            // L'host ha rifiutato!
             decision_made = true;
             is_accepted = false;
         }
@@ -262,17 +265,14 @@ void start_game(int game_idx){
 
     for (int i = 0; i < MAX_PLAYERS; i++) {
         if (game->players[i].status == CONNECTED) {
-            // Aggiungiamo il socket_fd alla stringa dei socket
             sprintf(temp, "%d ", game->players[i].socket_fd);
             strcat(sockets_args, temp);
 
-            // Aggiungiamo l'id del giocatore alla stringa degli ID
             sprintf(temp, "%d ", game->players[i].id);
             strcat(ids_args, temp);
         }
     }
 
-    // Passiamo le due stringhe come parametri distinti
     char *argv[] = {
         "game_server",
         game->code,     // argv[1]: Codice partita
@@ -295,15 +295,92 @@ void start_game(int game_idx){
     if (status == 0) {
         printf("[MATCHMAKER] Game server avviato (pid=%d) per partita %s\n",
                pid, game->code);
+        
+        // Salviamo il PID all'interno della struct di gioco per tracciarlo nel monitor
+        game->game_pid = pid;
 
-        // 🔴 IMPORTANTISSIMO: chiudi le socket nel matchmaker
+        // 🌟 NOTA IMPORTANTE MODIFICATA: Non chiudiamo i socket qui nel matchmaker e non impostiamo
+        // lo stato a DISCONNECTED, altrimenti il monitor non potrà rimandare il gruppo in Lobby!
+        /*
         for (int i = 0; i < MAX_PLAYERS; i++) {
             if (game->players[i].status == CONNECTED) {
                 close(game->players[i].socket_fd);
                 game->players[i].status = DISCONNECTED;
             }
         }
+        */
     } else {
         perror("posix_spawn fallita");
     }
+}
+
+// Monitor Thread Globale Semplificato
+void *game_monitor_loop(void *arg) {
+    while (1) {
+        int status;
+        pid_t pid = waitpid(-1, &status, WNOHANG);
+
+        if (pid > 0) {
+            pthread_mutex_lock(&games_mutex);
+            int idx = find_game_by_pid(pid);
+
+            if (idx != -1) {
+                if (WIFEXITED(status)) {
+                    int exit_code = WEXITSTATUS(status);
+
+                    // 🟢 L'HOST HA SCELTO DI CONTINUARE: Portiamo tutti indietro
+                    if (exit_code == 10) {
+                        printf("[MONITOR] Il creatore della partita %s ha scelto di continuare. Tutti tornano in Lobby.\n", games[idx].code);
+                        
+                        games[idx].started = false;
+                        games[idx].game_pid = 0;
+                        // Nota: games[idx].num_players e i socket dei client rimangono attivi ed invariati!
+
+                        // Avvisiamo tutti i client che sono di nuovo in lobby
+                        for (int i = 0; i < MAX_PLAYERS; i++) {
+                            if (games[idx].players[i].status == CONNECTED) {
+                                send(games[idx].players[i].socket_fd, "MESSAGE Siete tornati in lobby! In attesa che l'host avvii una nuova partita...\n", 79, 0);
+                            }
+                        }
+
+                        // Facciamo ripartire il thread dell'host che ascolta i comandi (START_GAME/ACCEPT/REJECT)
+                        int *p_idx = malloc(sizeof(int));
+                        if (p_idx != NULL) {
+                            *p_idx = idx;
+                            pthread_t tid;
+                            // Assicurati che 'host_loop_thread' o 'handle_host_loop' (adattato a thread) sia passabile qui
+                            if (pthread_create(&tid, NULL, (void *(*)(void *))handle_host_loop, p_idx) == 0) {
+                                pthread_detach(tid);
+                            } else {
+                                free(p_idx);
+                            }
+                        }
+                    } 
+                    // 🔴 GAME OVER O SCIOGLIMENTO STANZA
+                    else {
+                        printf("[MONITOR] La partita %s è conclusa o sciolta. Svuoto la stanza.\n", games[idx].code);
+                        for (int i = 0; i < MAX_PLAYERS; i++) {
+                            if (games[idx].players[i].status == CONNECTED || games[idx].players[i].status == PENDING) {
+                                close(games[idx].players[i].socket_fd);
+                            }
+                        }
+                        memset(&games[idx], 0, sizeof(Game));
+                    }
+                } 
+                // ⚠️ CRASH DEL PROCESSO FIGLIO
+                else {
+                    printf("[MONITOR] ATTENZIONE: Il processo %s è crashato. Forzo la chiusura.\n", games[idx].code);
+                    for (int i = 0; i < MAX_PLAYERS; i++) {
+                        if (games[idx].players[i].status == CONNECTED || games[idx].players[i].status == PENDING) {
+                            close(games[idx].players[i].socket_fd);
+                        }
+                    }
+                    memset(&games[idx], 0, sizeof(Game));
+                }
+            }
+            pthread_mutex_unlock(&games_mutex);
+        }
+        usleep(100000); // 100ms
+    }
+    return NULL;
 }
