@@ -606,8 +606,8 @@ bool combat_encounter(Player *players, int num_players) {
     
     int num_monsters = 2;
     Monster monsters[2] = {
-        {0, "Skeleton", 50, true, 300, 0, &monster_weapons[2], NULL},
-        {1, "Orc", 80, true, 300, 50, &monster_weapons[2], NULL}
+        {0, "Skeleton", 10, true, 300, 0, &monster_weapons[2], NULL},
+        {1, "Orc", 10, true, 300, 50, &monster_weapons[2], NULL}
     };
 
     for (int i = 0; i < num_monsters; i++) {

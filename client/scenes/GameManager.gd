@@ -213,9 +213,9 @@ func _handle_monster_info(args: Array):
 	if not m_alive:
 		if monster_node.has_method("die"):
 			monster_node.die()
-			monster_node.queue_free() # Rimuove fisicamente il nodo dallo schermo
-		monsters_nodes.erase(m_name) # Lo togliamo dal dizionario dopo la morte
-	
+		monster_node.hide()
+	else:
+		monster_node.show()
 	
 func _handle_hp_update(args):
 	var id = args[0].to_int()
@@ -250,6 +250,10 @@ func _handle_make_turn_decision(args: Array):
 		print("ATTENZIONE: Nodo HudBottom non trovato o metodo show_turn_decision_menu mancante!")
 
 func _handle_loading_room(directions: String ): 
+	for m in monsters_nodes.values():
+		if is_instance_valid(m):
+			m.queue_free()
+	monsters_nodes.clear() # Svuota il dizionario
 	load_room.emit(directions)
 # --- ESTETICA ---
 

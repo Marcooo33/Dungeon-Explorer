@@ -239,16 +239,25 @@ func _on_attacca_clicked():
 		var btn = Button.new()
 		btn.custom_minimum_size = Vector2(100, 200)
 		
-		# Controlliamo il singolo mostro: è a tiro?
-		if _is_monster_in_range(m_node):
+		# 1. Controlliamo se il mostro è morto
+		if m_node.get("is_alive") == false:
+			btn.text = "%s\n(Morto)" % str(m_name)
+			btn.disabled = true
+			
+		# 2. Controlliamo se è a tiro
+		elif _is_monster_in_range(m_node):
 			btn.text = str(m_name)
 			btn.disabled = false
 			btn.pressed.connect(_on_attack_target_selected.bind(monster_id))
+			
+		# 3. Altrimenti è troppo lontano
 		else:
 			btn.text = "%s\n(Troppo lontano)" % str(m_name)
 			btn.disabled = true
 			
 		buttons_container.add_child(btn)
+		
+		# Adesso l'ID incrementa SEMPRE, mantenendosi sincronizzato col server
 		monster_id += 1
 		
 	_focus_first_button()
