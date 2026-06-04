@@ -514,18 +514,33 @@ void move_player(Player *p, int x, int y) {
 
 void use_item(Player *p) {
     if (!p->item) {
-        printf("Non hai oggetti!\n");
+        printf("[DEBUG] Il giocatore %d non ha oggetti da usare!\n", p->id);
+        char no_item_msg[64];
+        sprintf(no_item_msg, "MESSAGE Non hai oggetti da usare!\n");
+        send(p->socket_fd, no_item_msg, strlen(no_item_msg), 0);
         return;
     }
 
+    const char *item_name = p->item->name;
+    printf("Il Giocatore %d usa %s\n", p->id, item_name);
+
+    // Usa l'oggetto (modifica HP, ecc.)
     p->item->use(p);
 
-    printf("Il Giocatore %d usa %s\n",
-           p->id, p->item->name);
+    // Rimuovi l'oggetto dall'inventario (consumabile one-shot)
+    p->item = NULL;
+
+    // Notifica il giocatore via messaggio
+    char used_msg[128];
+    sprintf(used_msg, "MESSAGE Hai usato %s! +15 HP. L'oggetto è stato rimosso dall'inventario.\n", item_name);
+    send(p->socket_fd, used_msg, strlen(used_msg), 0);
+
+    // Aggiorna tutti i client con le nuove info del giocatore (HP e inventario)
+    broadcast_player_info(p);
 }
 
 void health_potion_function(Player *p) {
-    int heal = 30; // tra 20 e 49
+    int heal = 30;
     p->hp += heal;
     if (p->hp > 100) p->hp = 100;
 
@@ -603,7 +618,7 @@ void player_turn(Player *p, Monster *monsters, int num_monsters) {
             printf("[DEBUG] ATTACK non valido: %s\n", action_str);
         }
 
-    } else if (strcmp(action_str, "USE ITEM") == 0 || strcmp(action_str, "USE_ITEM") == 0) {
+    } else if (strcmp(action_str, "USE_ITEM") == 0) {
         use_item(p);
 
     } else {

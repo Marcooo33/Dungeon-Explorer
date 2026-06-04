@@ -67,6 +67,16 @@ func _on_inventory_decision_pressed(choice: String):
 	NetworkManager.send_to_server(message)
 
 # =====================================================================
+# --- CONTROLLO INVENTARIO ---
+# =====================================================================
+func _player_has_item() -> bool:
+	if not GameManager.players_nodes.has(GameManager.my_id): return false
+	var player = GameManager.players_nodes[GameManager.my_id]
+	var item = player.get_meta("item_name", "None")
+	var item_str = str(item).strip_edges()
+	return item_str != "None" and item_str != ""
+
+# =====================================================================
 # --- FUNZIONI DI SUPPORTO PER IL RANGE DELLE ARMI ---
 # =====================================================================
 func _is_monster_in_range(monster_node: Node2D) -> bool:
@@ -142,9 +152,16 @@ func show_turn_decision_menu():
 	
 	# 3. Bottone USA OGGETTO
 	var btn_item = Button.new()
-	btn_item.text = "USA OGGETTO"
 	btn_item.custom_minimum_size = Vector2(100, 200)
-	btn_item.pressed.connect(_on_turn_decision_pressed.bind("USA_OGGETTO"))
+	
+	if _player_has_item():
+		btn_item.text = "USA OGGETTO"
+		btn_item.disabled = false
+		btn_item.pressed.connect(_on_turn_decision_pressed.bind("USE_ITEM"))
+	else:
+		btn_item.text = "USA OGGETTO\n(Nessuno)"
+		btn_item.disabled = true
+	
 	buttons_container.add_child(btn_item)
 	
 	_focus_first_button()
