@@ -19,9 +19,15 @@ int distance(int x1, int y1, int x2, int y2);
 
 void broadcast(const char *message);
 void broadcast_player_info(Player *player);
+void broadcast_all_players_info(void);
 void broadcast_monster_info(Monster *monster);
 bool are_all_players_dead(Player *players, int num_players);
 bool are_all_monsters_dead(Monster *monsters, int num_monsters);
 void reset_players_position(Player *player);
+
+// Gestione disconnessioni
+void mark_player_disconnected(Player *p);
+int count_connected_players(void);
+bool are_all_players_disconnected(void);
 
 #endif

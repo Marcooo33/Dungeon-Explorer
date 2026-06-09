@@ -7,6 +7,8 @@ SRC2=src/game.c src/utils/gameUtils.c
 OUT1=matchmaker
 OUT2=game
 
+all: compile_matchmaker compile_game exec
+
 compile_matchmaker:
 	mkdir -p bin
 	$(CC) $(CFLAGS) $(SRC1) -o $(OUT1)
@@ -21,7 +23,6 @@ compile_game:
 exec:
 	./bin/$(OUT1)
 
-all: compile_matchmaker compile_game exec
 
 
 clean:

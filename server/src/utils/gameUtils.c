@@ -11,14 +11,52 @@
 
 EncounterFunction treasure_encounters[] = {treasure_encounter1, treasure_encounter2, treasure_encounter3};
 
+// Forward declaration (definita più avanti in questo file)
+void broadcast(const char *message);
+
+// Marca un giocatore come disconnesso: chiude il socket, lo rimuove dal gioco
+void mark_player_disconnected(Player *p) {
+    if (!p->connected) return; // Già marcato
+    printf("[GAME %s] Disconnessione rilevata: Player %d (fd=%d)\n", game_code, p->id, p->socket_fd);
+    p->connected = false;
+    p->alive = false;
+
+    // Notifica agli altri client che questo player ha lasciato la partita
+    char disconnect_msg[64];
+    snprintf(disconnect_msg, sizeof(disconnect_msg), "PLAYER_DISCONNECTED %d\n", p->id);
+    broadcast(disconnect_msg); // broadcast usa già il flag connected, quindi skippa questo player
+
+    close(p->socket_fd);
+}
+
+// Conta i giocatori ancora connessi
+int count_connected_players(void) {
+    int count = 0;
+    for (int i = 0; i < connected_count; i++) {
+        if (players[i].connected) count++;
+    }
+    return count;
+}
+
+// Ritorna true se non rimane nessun giocatore connesso
+bool are_all_players_disconnected(void) {
+    return count_connected_players() == 0;
+}
 
 void broadcast(const char *message) {
     for (int i = 0; i < connected_count; i++) {
-        send(players[i].socket_fd, message, strlen(message), 0);
+        if (!players[i].connected) continue;
+        ssize_t sent = send(players[i].socket_fd, message, strlen(message), MSG_NOSIGNAL);
+        if (sent <= 0) {
+            printf("[GAME %s] Player %d disconnesso (broadcast fallito)\n", game_code, players[i].id);
+            mark_player_disconnected(&players[i]);
+        }
     }
 }
 
 void broadcast_player_info(Player *player) {
+    if (!player->connected) return; // MAI inviare a Godot info di giocatori crashati (evita respawn "fantasma")
+
     char player_info_message[128];
     sprintf(player_info_message, "PLAYER_INFO %d %d %d %d %d %s:%d:%d %s:%d %s\n", 
             player->id, 
@@ -35,6 +73,12 @@ void broadcast_player_info(Player *player) {
     );
     printf("[DEBUG] Broadcast player info: %s", player_info_message);
     broadcast(player_info_message);
+}
+
+void broadcast_all_players_info(void) {
+    for (int i = 0; i < connected_count; i++) {
+        broadcast_player_info(&players[i]);
+    }
 }
 
 void broadcast_monster_info(Monster *monster) {

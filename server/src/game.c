@@ -39,8 +39,9 @@ Weapon fists = {"Fists", 5, SHORT_RANGE, melee_attack};
 
 void init_players() {
     for (int i = 0; i < connected_count; i++) {
-        players[i].hp = 10;
+        players[i].hp = 100;
         players[i].alive = true;
+        players[i].connected = true; // tutti connessi all'inizio
         players[i].x = 0; // Posizione iniziale X
         players[i].y = i * 50; // Posizione iniziale Y
         players[i].gold = 0;
@@ -82,6 +83,9 @@ int main(int argc, char *argv[]) {
         id_token = strtok_r(NULL, " ", &saveptr_ids);
     }
 
+    for (int i = 0; i < connected_count; i++) {
+        players[i].connected = true; // 🔹 Necessario inizializzare subito per far funzionare broadcast()
+    }
 
     printf("[GAME %s] Ricevuti %d socket\n", game_code, connected_count);
     broadcast("START_GAME\n");
@@ -94,15 +98,13 @@ int main(int argc, char *argv[]) {
     char specific_client_msg[64];
     for (int i = 0; i < connected_count; i++) {
         sprintf(specific_client_msg, "SET_MY_ID %d\n", players[i].id);
-        send(players[i].socket_fd, specific_client_msg, strlen(specific_client_msg), 0);
+        send(players[i].socket_fd, specific_client_msg, strlen(specific_client_msg), MSG_NOSIGNAL);
     }
 
     init_players();
 
     char player_info_message[128];
-    for (int i = 0; i < connected_count; i++) {
-        broadcast_player_info(&players[i]);
-    }
+    broadcast_all_players_info();
 
 
     // Debug: stampa info giocatori
@@ -114,7 +116,7 @@ int main(int argc, char *argv[]) {
     }
 
 
-    dungeon = generate_dungeon(2);
+    dungeon = generate_dungeon(1);
     int current_room_idx = 0; // Iniziamo nella prima stanza del dungeon
     int next_room_idx = -1; 
     char room_info_msg[256];
@@ -122,6 +124,12 @@ int main(int argc, char *argv[]) {
 
     // game loop start
     while (true){
+        // Controllo: se non c'è nessun giocatore connesso, terminiamo
+        if (are_all_players_disconnected()) {
+            printf("[GAME %s] Tutti i client si sono disconnessi. Chiudo la sessione.\n", game_code);
+            return 1;
+        }
+
         current_room = &dungeon.rooms[current_room_idx];
 
         // 1) far svolgere encounter stanza
@@ -158,16 +166,27 @@ int main(int argc, char *argv[]) {
                     }
                 }
 
-                if (host_idx != -1) {
+                // Se l'host è ancora connesso, gli chiediamo la decisione
+                if (host_idx != -1 && players[host_idx].connected) {
                     // Chiediamo la decisione SOLO all'Host
                     char *decision_msg = "MAKE_END_DECISION\n";
-                    send(players[host_idx].socket_fd, decision_msg, strlen(decision_msg), 0);
-                    
+                    ssize_t s = send(players[host_idx].socket_fd, decision_msg, strlen(decision_msg), MSG_NOSIGNAL);
+                    if (s <= 0) {
+                        // Host disconnesso proprio ora
+                        mark_player_disconnected(&players[host_idx]);
+                        host_idx = -1;
+                    }
+                } else {
+                    // Host già disconnesso prima della fine partita
+                    host_idx = -1;
+                }
+
+                if (host_idx != -1) {
                     // Notifichiamo gli altri giocatori che siamo in attesa dell'Host (usiamo un messaggio generico)
                     char *wait_msg = "MESSAGE Partita terminata! In attesa della decisione del creatore della stanza...\n";
                     for (int i = 0; i < connected_count; i++) {
-                        if (i != host_idx) {
-                            send(players[i].socket_fd, wait_msg, strlen(wait_msg), 0);
+                        if (i != host_idx && players[i].connected) {
+                            send(players[i].socket_fd, wait_msg, strlen(wait_msg), MSG_NOSIGNAL);
                         }
                     }
 
@@ -190,11 +209,17 @@ int main(int argc, char *argv[]) {
                                 sleep(2);
                                 return 10; // 👈 Codice speciale: dice al Matchmaker di salvare la lobby ed i player
                             }
+                        } else {
+                            // Host si è disconnesso mentre attendevamo
+                            mark_player_disconnected(&players[host_idx]);
                         }
+                    } else if (activity < 0 || (host_fd.revents & (POLLHUP | POLLERR))) {
+                        // Errore socket o connessione chiusa
+                        mark_player_disconnected(&players[host_idx]);
                     }
                 }
 
-                // Se l'Host sceglie LEAVE, va in timeout o si disconnette, la stanza si scioglie
+                // Se l'Host sceglie LEAVE, va in timeout, si disconnette, o non era disponibile
                 printf("[GAME %s] Il creatore ha abbandonato o sciolto la stanza.\n", game_code);
                 broadcast("GAME_OVER\n");
                 sleep(2);
@@ -223,10 +248,19 @@ int main(int argc, char *argv[]) {
 
         struct pollfd fds[MAX_PLAYERS];
 
-        // Inizializzazione
+        // Numero di voti attesi: solo giocatori connessi E vivi.
+        // Lo fissiamo PRIMA del loop per avere una soglia stabile.
+        int expected_votes = 0;
         for (int i = 0; i < connected_count; i++) {
-            fds[i].fd = players[i].socket_fd;
-            fds[i].events = POLLIN;
+            if (players[i].connected && players[i].alive) {
+                fds[i].fd = players[i].socket_fd;
+                fds[i].events = POLLIN;
+                expected_votes++;
+            } else {
+                fds[i].fd = -1; // poll ignora fd negativi
+                has_voted[i] = true; // già "votato" (assente)
+                // NON incrementiamo 'received' altrimenti sfalsiamo il loop!
+            }
             fds[i].revents = 0;
         }
 
@@ -234,7 +268,7 @@ int main(int argc, char *argv[]) {
         int elapsed = 0;
         int step = 1000; // controlliamo ogni 1 secondo
 
-        while (received < connected_count && elapsed < timeout_ms) {
+        while (received < expected_votes && elapsed < timeout_ms) {
             int activity = poll(fds, connected_count, step);
 
             if (activity < 0) {
@@ -249,19 +283,40 @@ int main(int argc, char *argv[]) {
             }
 
             for (int i = 0; i < connected_count; i++) {
-                if ((fds[i].revents & POLLIN) && !has_voted[i]) {
+                if (has_voted[i]) continue;
+
+                // Disconnessione rilevata da poll (HUP/ERR)
+                if (fds[i].revents & (POLLHUP | POLLERR)) {
+                    printf("[GAME %s] Player %d disconnesso durante il voto\n", game_code, players[i].id);
+                    mark_player_disconnected(&players[i]);
+                    fds[i].fd = -1;
+                    has_voted[i] = true;
+                    expected_votes--; // aggiorna soglia: non aspettiamo più questo player
+                    continue;
+                }
+
+                if (fds[i].revents & POLLIN) {
                     char buffer[128] = {0};
                     int bytes = recv(fds[i].fd, buffer, sizeof(buffer) - 1, 0);
 
-                    if (bytes <= 0) continue;
+                    if (bytes <= 0) {
+                        // Socket chiuso o errore
+                        printf("[GAME %s] Player %d disconnesso durante il voto (recv)\n", game_code, players[i].id);
+                        mark_player_disconnected(&players[i]);
+                        fds[i].fd = -1;
+                        has_voted[i] = true;
+                        expected_votes--; // aggiorna soglia
+                        continue;
+                    }
 
                     if (strncmp(buffer, "SEND_DECISION ", 14) == 0) {
                         char *dir_str = buffer + 14;
                         dir_str[strcspn(dir_str, "\r\n")] = 0;
 
                         Direction d = string_to_direction(dir_str);
-
-                        votes[d]++;
+                        if (d >= 0 && d < 4) {
+                            votes[d]++;
+                        }
 
                         has_voted[i] = true;
                         received++;
@@ -274,9 +329,9 @@ int main(int argc, char *argv[]) {
         }
 
         // Debug timeout
-        if (received < connected_count) {
+        if (received < expected_votes) {
             printf("[GAME %s] Timeout votazione (%d/%d ricevuti)\n",
-                game_code, received, connected_count);
+                game_code, received, expected_votes);
         }
 
         int max_votes = 0;
@@ -354,13 +409,11 @@ bool treasure_encounter1(Player *players, int num_players){
         int gold_found = rand() % 50 + 10; // tra 10 e 59
         players[i].gold += gold_found;
         sprintf(treasure_found_message, "MESSAGE Oro trovato: %d\n", gold_found);
-        send(players[i].socket_fd, treasure_found_message, strlen(treasure_found_message), 0);
+        send(players[i].socket_fd, treasure_found_message, strlen(treasure_found_message), MSG_NOSIGNAL);
     }
     
     printf("sono qui\n");
-    for (int i = 0; i < num_players; i++) {
-        broadcast_player_info(&players[i]);
-    }
+    broadcast_all_players_info();
     printf("sono dopo il broadcast\n");
     return true;
 }
@@ -377,15 +430,26 @@ bool treasure_encounter3(Player *players, int num_players){
     char decision_buffer[128];
 
     for (int i = 0; i < num_players; i++) {
+        // Salta i giocatori già disconnessi
+        if (!players[i].connected) continue;
+
         int reward_type = rand() % 3;
         if (reward_type == 0) {
             int weapon_idx = rand() % 2;
             Weapon *found_weapon = &player_weapons[weapon_idx];
 
             sprintf(treasure_found_message, "MAKE_INVENTORY_DECISION Hai trovato un'arma: %s atk: %d range: %d\n", found_weapon->name, found_weapon->damage, found_weapon->range);
-            send(players[i].socket_fd, treasure_found_message, strlen(treasure_found_message), 0);
+            ssize_t s = send(players[i].socket_fd, treasure_found_message, strlen(treasure_found_message), MSG_NOSIGNAL);
+            if (s <= 0) { mark_player_disconnected(&players[i]); continue; }
+
+            // Aspettiamo la decisione con timeout (10 secondi)
+            struct pollfd pfd = { players[i].socket_fd, POLLIN, 0 };
+            int r = poll(&pfd, 1, 10000);
+            if (r <= 0 || (pfd.revents & (POLLHUP | POLLERR))) { mark_player_disconnected(&players[i]); continue; }
+
             memset(decision_buffer, 0, sizeof(decision_buffer));
-            recv(players[i].socket_fd, decision_buffer, sizeof(decision_buffer) - 1, 0); // Aspettiamo la decisione del client
+            int bytes = recv(players[i].socket_fd, decision_buffer, sizeof(decision_buffer) - 1, 0);
+            if (bytes <= 0) { mark_player_disconnected(&players[i]); continue; }
 
             if(strncmp(decision_buffer, "SEND_DECISION T", 15) == 0) {
                 printf("[DEBUG] Trovata arma: %s, danno: %d, range: %d\n", found_weapon->name, found_weapon->damage, found_weapon->range);
@@ -394,18 +458,24 @@ bool treasure_encounter3(Player *players, int num_players){
 
             broadcast_player_info(&players[i]);
 
-
         } else if (reward_type == 1) {
             int armor_idx = rand() % 2;
             Armor *found_armor = &armors[armor_idx];
             
             sprintf(treasure_found_message, "MAKE_INVENTORY_DECISION Hai trovato un'armatura: %s def: %d\n", found_armor->name, found_armor->defense);
-            send(players[i].socket_fd, treasure_found_message, strlen(treasure_found_message), 0);
-            memset(decision_buffer, 0, sizeof(decision_buffer));
-            recv(players[i].socket_fd, decision_buffer, sizeof(decision_buffer) - 1, 0); // Aspettiamo la decisione del client
+            ssize_t s = send(players[i].socket_fd, treasure_found_message, strlen(treasure_found_message), MSG_NOSIGNAL);
+            if (s <= 0) { mark_player_disconnected(&players[i]); continue; }
 
-            if (strncmp(decision_buffer, "SEND_DECISION T", 15) == 0)
-            {
+            // Aspettiamo la decisione con timeout (10 secondi)
+            struct pollfd pfd = { players[i].socket_fd, POLLIN, 0 };
+            int r = poll(&pfd, 1, 10000);
+            if (r <= 0 || (pfd.revents & (POLLHUP | POLLERR))) { mark_player_disconnected(&players[i]); continue; }
+
+            memset(decision_buffer, 0, sizeof(decision_buffer));
+            int bytes = recv(players[i].socket_fd, decision_buffer, sizeof(decision_buffer) - 1, 0);
+            if (bytes <= 0) { mark_player_disconnected(&players[i]); continue; }
+
+            if (strncmp(decision_buffer, "SEND_DECISION T", 15) == 0) {
                 printf("[DEBUG] Trovata armatura: %s, difesa: %d\n", found_armor->name, found_armor->defense);
                 players[i].armor = found_armor;
             }
@@ -416,18 +486,24 @@ bool treasure_encounter3(Player *players, int num_players){
             int item_idx = rand() % 1;
             Item *found_item = &items[item_idx];
             sprintf(treasure_found_message, "MAKE_INVENTORY_DECISION Hai trovato un oggetto: %s\n", found_item->name);
-            send(players[i].socket_fd, treasure_found_message, strlen(treasure_found_message), 0);
-            memset(decision_buffer, 0, sizeof(decision_buffer));
-            recv(players[i].socket_fd, decision_buffer, sizeof(decision_buffer) - 1, 0); // Aspettiamo la decisione del client
+            ssize_t s = send(players[i].socket_fd, treasure_found_message, strlen(treasure_found_message), MSG_NOSIGNAL);
+            if (s <= 0) { mark_player_disconnected(&players[i]); continue; }
 
-            if (strncmp(decision_buffer, "SEND_DECISION T", 15) == 0)
-            {
+            // Aspettiamo la decisione con timeout (10 secondi)
+            struct pollfd pfd = { players[i].socket_fd, POLLIN, 0 };
+            int r = poll(&pfd, 1, 10000);
+            if (r <= 0 || (pfd.revents & (POLLHUP | POLLERR))) { mark_player_disconnected(&players[i]); continue; }
+
+            memset(decision_buffer, 0, sizeof(decision_buffer));
+            int bytes = recv(players[i].socket_fd, decision_buffer, sizeof(decision_buffer) - 1, 0);
+            if (bytes <= 0) { mark_player_disconnected(&players[i]); continue; }
+
+            if (strncmp(decision_buffer, "SEND_DECISION T", 15) == 0) {
                 printf("[DEBUG] Trovato oggetto: %s\n", found_item->name);
                 players[i].item = found_item;
             }
 
             broadcast_player_info(&players[i]);
-
         }
     }
     return true;
@@ -449,9 +525,7 @@ bool trap_encounter(Player *players, int num_players){
         }
     }
 
-    for (int i = 0; i < connected_count; i++) {
-        broadcast_player_info(&players[i]);
-    }
+    broadcast_all_players_info();
 
     bool room_cleared = !(are_all_players_dead(players, num_players));
     return room_cleared;
@@ -514,7 +588,7 @@ void use_item(Player *p) {
         printf("[DEBUG] Il giocatore %d non ha oggetti da usare!\n", p->id);
         char no_item_msg[64];
         sprintf(no_item_msg, "MESSAGE Non hai oggetti da usare!\n");
-        send(p->socket_fd, no_item_msg, strlen(no_item_msg), 0);
+        send(p->socket_fd, no_item_msg, strlen(no_item_msg), MSG_NOSIGNAL);
         return;
     }
 
@@ -530,7 +604,7 @@ void use_item(Player *p) {
     // Notifica il giocatore via messaggio
     char used_msg[128];
     sprintf(used_msg, "MESSAGE Hai usato %s! +15 HP. L'oggetto è stato rimosso dall'inventario.\n", item_name);
-    send(p->socket_fd, used_msg, strlen(used_msg), 0);
+    send(p->socket_fd, used_msg, strlen(used_msg), MSG_NOSIGNAL);
 
     // Aggiorna tutti i client con le nuove info del giocatore (HP e inventario)
     broadcast_player_info(p);
@@ -568,12 +642,31 @@ bool is_tile_occupied_by_monster(int x, int y, Monster *monsters, int num_monste
 
 
 void player_turn(Player *p, Monster *monsters, int num_monsters) {
-    send(p->socket_fd, "MAKE_TURN_DECISION\n", strlen("MAKE_TURN_DECISION\n"), 0);
-    
+    // Skippa il turno se il giocatore si è già disconnesso
+    if (!p->connected) return;
+
+    ssize_t s = send(p->socket_fd, "MAKE_TURN_DECISION\n", strlen("MAKE_TURN_DECISION\n"), MSG_NOSIGNAL);
+    if (s <= 0) {
+        printf("[GAME] Player %d disconnesso all'invio di MAKE_TURN_DECISION\n", p->id);
+        mark_player_disconnected(p);
+        return;
+    }
+
+    // Attendiamo la risposta con timeout per non bloccarci se il client crasha
+    struct pollfd pfd = { p->socket_fd, POLLIN, 0 };
+    int r = poll(&pfd, 1, 15000); // 15 secondi
+
+    if (r <= 0 || (pfd.revents & (POLLHUP | POLLERR))) {
+        printf("[GAME] Player %d disconnesso o timeout durante MAKE_TURN_DECISION\n", p->id);
+        mark_player_disconnected(p);
+        return;
+    }
+
     char decision_buffer[128] = {0};
     int bytes = recv(p->socket_fd, decision_buffer, sizeof(decision_buffer) - 1, 0);
     if (bytes <= 0) {
-        printf("[DEBUG] Nessuna decisione ricevuta per il giocatore %d\n", p->id);
+        printf("[GAME] Player %d disconnesso (recv fallito nel turno)\n", p->id);
+        mark_player_disconnected(p);
         return;
     }
 
@@ -708,7 +801,7 @@ bool combat_encounter(Player *players, int num_players) {
 
         // --- FASE 1: TURNI GIOCATORI ---
         for (int i = 0; i < num_players; i++) {
-            if (players[i].alive) {
+            if (players[i].alive && players[i].connected) {
                 player_turn(&players[i], monsters, num_monsters);
                 broadcast_player_info(&players[i]);
 
@@ -731,14 +824,18 @@ bool combat_encounter(Player *players, int num_players) {
             }
         }
 
+        // Controllo: se tutti i giocatori si sono disconnessi, terminiamo il combattimento
+        if (are_all_players_disconnected()) {
+            printf("[GAME %s] Tutti i giocatori si sono disconnessi durante il combattimento.\n", game_code);
+            return false;
+        }
+
         // --- FASE 2: CONTROLLO VITTORIA ---
         if (are_all_monsters_dead(monsters, num_monsters)) {
             broadcast("MESSAGE L'ultimo mostro finisce a terra e tirate tutti un sospiro di sollievo... senza abbassare la guardia\n");
             
             reset_players_position(players);
-            for (int i = 0; i < connected_count; i++) {
-                if (players[i].alive) broadcast_player_info(&players[i]);
-            }
+            broadcast_all_players_info();
             return true;
         }
 
@@ -777,9 +874,7 @@ bool combat_encounter(Player *players, int num_players) {
 
     reset_players_position(players);
 
-    for (int i = 0; i < connected_count; i++) {
-        broadcast_player_info(&players[i]);
-    }
+    broadcast_all_players_info();
 
 }
 
@@ -903,7 +998,7 @@ bool boss_encounter(Player *players, int num_players) {
 
         // --- FASE 1: TURNI GIOCATORI ---
         for (int i = 0; i < num_players; i++) {
-            if (players[i].alive) {
+            if (players[i].alive && players[i].connected) {
                 player_turn(&players[i], &boss, 1); // Passiamo 1 come numero di mostri (il boss)
                 broadcast_player_info(&players[i]);
 
@@ -925,14 +1020,18 @@ bool boss_encounter(Player *players, int num_players) {
             }
         }
 
+        // Controllo: se tutti i giocatori si sono disconnessi, terminiamo il combattimento
+        if (are_all_players_disconnected()) {
+            printf("[GAME %s] Tutti i giocatori si sono disconnessi durante lo scontro col boss.\n", game_code);
+            return false;
+        }
+
         // --- FASE 2: CONTROLLO VITTORIA ---
         if (!boss.alive) {
             broadcast("MESSAGE Il boss è stato sconfitto! Avete completato il dungeon!\n");
             
             reset_players_position(players);
-            for (int i = 0; i < connected_count; i++) {
-                if (players[i].alive) broadcast_player_info(&players[i]);
-            }
+            broadcast_all_players_info();
             return true;
         }
 
@@ -965,8 +1064,6 @@ bool boss_encounter(Player *players, int num_players) {
     
     // Fallback di sicurezza a fine scontro
     reset_players_position(players);
-    for (int i = 0; i < connected_count; i++) {
-        broadcast_player_info(&players[i]);
-    }
+    broadcast_all_players_info();
     return true;
 }

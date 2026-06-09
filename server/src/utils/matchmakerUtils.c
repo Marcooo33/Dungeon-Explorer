@@ -89,12 +89,12 @@ void handle_host_loop(int game_idx) {
                         
                         // --- RIPRISTINATO COME PRIMA ---
                         // Inviamo un semplice JOIN_ACCEPTED senza numero
-                        send(accepted_player->socket_fd, "JOIN_ACCEPTED\n", 14, 0);
+                        send(accepted_player->socket_fd, "JOIN_ACCEPTED\n", 14, MSG_NOSIGNAL);
 
                         // Inviamo il codice stanza al nuovo giocatore (necessario per non avere UI vuota)
                         char room_code_msg[64];
                         snprintf(room_code_msg, sizeof(room_code_msg), "ROOM_CODE %s\n", games[game_idx].code);
-                        send(accepted_player->socket_fd, room_code_msg, strlen(room_code_msg), 0);
+                        send(accepted_player->socket_fd, room_code_msg, strlen(room_code_msg), MSG_NOSIGNAL);
 
                         // Broadcast della lista a tutti (necessario per aggiornare l'host)
                         broadcast_player_list(&games[game_idx]);
@@ -116,7 +116,7 @@ void handle_host_loop(int game_idx) {
                         printf("[MATCHMAKER] Giocatore %d rifiutato nella partita %s\n", player_index, games[game_idx].code);
                         
                         Player* rejected_player = &games[game_idx].players[player_index];
-                        send(rejected_player->socket_fd, "JOIN_REJECTED\n", 14, 0);
+                        send(rejected_player->socket_fd, "JOIN_REJECTED\n", 14, MSG_NOSIGNAL);
                     }
                 }
             }
@@ -135,7 +135,7 @@ void handle_host_loop(int game_idx) {
                     // Avvisiamo tutti i client che il gioco inizia
                     for (int i = 0; i < MAX_PLAYERS; i++) {
                         if (games[game_idx].players[i].status == CONNECTED) {
-                            send(games[game_idx].players[i].socket_fd, "START_GAME\n", 11, 0);
+                            send(games[game_idx].players[i].socket_fd, "START_GAME\n", 11, MSG_NOSIGNAL);
                         }
                     }
                     
@@ -143,7 +143,7 @@ void handle_host_loop(int game_idx) {
                     return;
                     
                 } else {
-                    send(host->socket_fd, "ERROR MIN_PLAYERS_NOT_MET\n", 27, 0);
+                    send(host->socket_fd, "ERROR MIN_PLAYERS_NOT_MET\n", 27, MSG_NOSIGNAL);
                 }
             }
 
@@ -171,7 +171,7 @@ void handle_join(int client_socket_fd) {
         }
 
         if (sscanf(buffer, "JOIN %7s", join_code) != 1) {
-            send(client_socket_fd, "ERROR INVALID_FORMAT\n", 22, 0);
+            send(client_socket_fd, "ERROR INVALID_FORMAT\n", 22, MSG_NOSIGNAL);
             continue; 
         }
 
@@ -180,13 +180,13 @@ void handle_join(int client_socket_fd) {
 
         if (game_idx == -1) {
             printf("[MATCHMAKER] Codice errato: %s. Richiedo nuovo inserimento.\n", join_code);
-            send(client_socket_fd, "ERROR NOT_FOUND\n", 17, 0);
+            send(client_socket_fd, "ERROR NOT_FOUND\n", 17, MSG_NOSIGNAL);
             pthread_mutex_unlock(&games_mutex);
             continue;
         } 
         else if (games[game_idx].started) {
             printf("[MATCHMAKER] Partita %s piena.\n", join_code);
-            send(client_socket_fd, "ERROR STARTED\n", 15, 0);
+            send(client_socket_fd, "ERROR STARTED\n", 15, MSG_NOSIGNAL);
             pthread_mutex_unlock(&games_mutex);
             continue;
         } 
@@ -194,7 +194,7 @@ void handle_join(int client_socket_fd) {
             int idx_new_player = find_free_player_slot(&games[game_idx]);
             
             if (idx_new_player == -1) {
-                send(client_socket_fd, "ERROR FULL\n", 15, 0);
+                send(client_socket_fd, "ERROR FULL\n", 15, MSG_NOSIGNAL);
                 pthread_mutex_unlock(&games_mutex);
                 continue;
             }
@@ -206,7 +206,7 @@ void handle_join(int client_socket_fd) {
             char join_request_msg[128];
             sprintf(join_request_msg, "JOIN_REQUEST %d\n", idx_new_player);
             Player* host = &games[game_idx].players[0];
-            send(host->socket_fd, join_request_msg, strlen(join_request_msg), 0);
+            send(host->socket_fd, join_request_msg, strlen(join_request_msg), MSG_NOSIGNAL);
             
             printf("[MATCHMAKER] Inviata richiesta di join all'host per la partita %s\n", join_code);
             
@@ -346,11 +346,44 @@ void *game_monitor_loop(void *arg) {
                         games[idx].started = false;
                         games[idx].game_pid = 0;
 
-                        // Avvisiamo tutti i client che sono di nuovo in lobby
+                        // Avvisiamo tutti i client che sono di nuovo in lobby e scartiamo chi è crashato nel frattempo
+                        bool list_changed = false;
                         for (int i = 0; i < MAX_PLAYERS; i++) {
                             if (games[idx].players[i].status == CONNECTED) {
-                                send(games[idx].players[i].socket_fd, "MESSAGE Siete tornati in lobby! In attesa che l'host avvii una nuova partita...\n", 79, 0);
+                                // Controllo robusto della connessione con poll() prima di inviare
+                                struct pollfd pfd;
+                                pfd.fd = games[idx].players[i].socket_fd;
+                                pfd.events = POLLIN;
+                                
+                                int activity = poll(&pfd, 1, 0); // timeout 0, ritorna subito
+                                bool is_disconnected = false;
+
+                                if (activity > 0) {
+                                    if (pfd.revents & (POLLHUP | POLLERR)) {
+                                        is_disconnected = true;
+                                    } else if (pfd.revents & POLLIN) {
+                                        char dump_buf[16];
+                                        if (recv(pfd.fd, dump_buf, sizeof(dump_buf), MSG_PEEK | MSG_DONTWAIT) == 0) {
+                                            is_disconnected = true; // EOF ricevuto (connessione chiusa)
+                                        }
+                                    }
+                                }
+
+                                if (is_disconnected) {
+                                    printf("[MONITOR] Rilevata disconnessione del giocatore %d (crashato durante la partita).\n", i);
+                                    games[idx].players[i].status = DISCONNECTED;
+                                    close(games[idx].players[i].socket_fd);
+                                    games[idx].num_players--;
+                                    list_changed = true;
+                                } else {
+                                    // Inviamo il messaggio solo se la connessione è ancora attiva
+                                    send(games[idx].players[i].socket_fd, "MESSAGE Siete tornati in lobby! In attesa che l'host avvii una nuova partita...\n", 79, MSG_NOSIGNAL);
+                                }
                             }
+                        }
+
+                        if (list_changed) {
+                            broadcast_player_list(&games[idx]);
                         }
 
                         // Facciamo ripartire il thread dell'host che ascolta i comandi
@@ -412,7 +445,7 @@ void broadcast_player_list(Game* game) {
     // Inviamo la stringa a tutti i giocatori connessi
     for (int i = 0; i < MAX_PLAYERS; i++) {
         if (game->players[i].status == CONNECTED) {
-            send(game->players[i].socket_fd, response, strlen(response), 0);
+            send(game->players[i].socket_fd, response, strlen(response), MSG_NOSIGNAL);
         }
     }
 }

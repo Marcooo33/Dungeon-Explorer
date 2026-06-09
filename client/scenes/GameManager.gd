@@ -94,6 +94,12 @@ func _on_game_data_received(cmd: String, args: Array):
 			monsters_nodes.clear()
 			get_tree().change_scene_to_file("res://scenes/lobby/Lobby.tscn")
 				
+		"PLAYER_DISCONNECTED":
+			if args.size() >= 1:
+				var disc_id = args[0].to_int()
+				_remove([args[0]])
+				_show_message_popup("Il Giocatore %d si è disconnesso!" % disc_id)
+				
 		"GAME_OVER":
 			players_nodes.clear()
 			monsters_nodes.clear()

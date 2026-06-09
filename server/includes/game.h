@@ -55,6 +55,7 @@ typedef struct Player{
     // communication
     int socket_fd;
     int id;
+    bool connected; // false se il client si è disconnesso (crash/chiusura)
 
     // game info
     int x,y;
