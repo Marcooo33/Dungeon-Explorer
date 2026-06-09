@@ -39,7 +39,7 @@ Weapon fists = {"Fists", 5, SHORT_RANGE, melee_attack};
 
 void init_players() {
     for (int i = 0; i < connected_count; i++) {
-        players[i].hp = 100;
+        players[i].hp = 10;
         players[i].alive = true;
         players[i].x = 0; // Posizione iniziale X
         players[i].y = i * 50; // Posizione iniziale Y
@@ -114,7 +114,7 @@ int main(int argc, char *argv[]) {
     }
 
 
-    dungeon = generate_dungeon(5);
+    dungeon = generate_dungeon(2);
     int current_room_idx = 0; // Iniziamo nella prima stanza del dungeon
     int next_room_idx = -1; 
     char room_info_msg[256];
@@ -133,7 +133,7 @@ int main(int argc, char *argv[]) {
                 current_room->completed = true;
 
                 // Se la stanza completata era il BOSS, la partita è vinta e si attiva la fine gioco
-                if (strcmp(current_room->type, "BOSS") == 0) {
+                if (strcmp(current_room->type, "boss") == 0) {
                     printf("[GAME %s] Il Boss è stato sconfitto! Dungeon completato.\n", game_code);
                     broadcast("MESSAGE COMPLIMENTI! Il Boss è caduto e il Dungeon è stato ripulito!\n");
                     end_game_triggered = true;
@@ -160,7 +160,7 @@ int main(int argc, char *argv[]) {
 
                 if (host_idx != -1) {
                     // Chiediamo la decisione SOLO all'Host
-                    char *decision_msg = "MAKE_END_DECISION Scegli: STAY per tornare in lobby con il gruppo, LEAVE per sciogliere la stanza.\n";
+                    char *decision_msg = "MAKE_END_DECISION\n";
                     send(players[host_idx].socket_fd, decision_msg, strlen(decision_msg), 0);
                     
                     // Notifichiamo gli altri giocatori che siamo in attesa dell'Host (usiamo un messaggio generico)
@@ -491,9 +491,6 @@ void ranged_attack(void *attacker, void *target) {
 
     if (dist > p->weapon->range) {
         printf("Troppo lontano per colpire!\n");
-        return;
-    }else if (dist >= SHORT_RANGE) {
-        printf("Troppo vicino per un attacco a distanza!\n");
         return;
     }
 
@@ -894,7 +891,7 @@ void boss_turn(Monster *boss, Player *players, int num_players) {
 bool boss_encounter(Player *players, int num_players) {
     broadcast("MESSAGE Entrate in una stanza più grande delle altre, al centro vedete un enorme mostro che vi fissa con occhi pieni di odio... è il boss del dungeon!\n");
 
-    Monster boss = {0, "Knight", 150, true, 200, 50, &monster_weapons[3], NULL };
+    Monster boss = {0, "Knight", 10, true, 200, 50, &monster_weapons[3], NULL };
     broadcast_monster_info(&boss);
 
     int turn = 0;

@@ -38,6 +38,14 @@ func connect_to_server():
 func send_to_server(msg: String):
 	client.send(msg)
 
+func reset_connection():
+	current_room_code = ""
+	current_players = []
+	state = State.LOBBY
+	client = NetworkSocket.new()
+	client.raw_packet.connect(_on_raw_packet)
+	client.connect_to_server()
+
 # ---------------- DISPATCH ----------------
 
 func _on_raw_packet(cmd: String, args: Array):
@@ -81,5 +89,13 @@ func _handle_lobby(cmd: String, args: Array):
 # ---------------- GAME ----------------
 
 func _handle_game(cmd: String, args: Array):
+	if cmd == "VICTORY":
+		state = State.LOBBY
+		game_data_received.emit(cmd, args)
+		return
+	if cmd == "GAME_OVER":
+		state = State.LOBBY
+		game_data_received.emit(cmd, args)
+		return
 	print("Sending to GameManager: ", cmd, " ", args)
 	game_data_received.emit(cmd, args)

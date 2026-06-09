@@ -39,6 +39,13 @@ int find_game_by_pid(pid_t pid) {
     return -1;
 }
 
+void *host_loop_thread(void *arg) {
+    int game_idx = *(int *)arg;
+    free(arg);
+    handle_host_loop(game_idx);
+    return NULL;
+}
+
 void handle_host_loop(int game_idx) {
     Player* host = &games[game_idx].players[0];
     char buffer[1024];
@@ -351,7 +358,7 @@ void *game_monitor_loop(void *arg) {
                         if (p_idx != NULL) {
                             *p_idx = idx;
                             pthread_t tid;
-                            if (pthread_create(&tid, NULL, (void *(*)(void *))handle_host_loop, p_idx) == 0) {
+                            if (pthread_create(&tid, NULL, host_loop_thread, p_idx) == 0) {
                                 pthread_detach(tid);
                             } else {
                                 free(p_idx);

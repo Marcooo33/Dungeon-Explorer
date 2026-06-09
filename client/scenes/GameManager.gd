@@ -36,6 +36,8 @@ func _on_game_data_received(cmd: String, args: Array):
 		"SET_MY_ID":
 			if args.size() >= 1:
 				my_id = args[0].to_int()
+				if players_nodes.has(my_id) and not is_instance_valid(players_nodes[my_id]):
+					players_nodes.erase(my_id)
 				if players_nodes.has(my_id):
 					_setup_local_player_visuals(players_nodes[my_id])
 
@@ -83,10 +85,24 @@ func _on_game_data_received(cmd: String, args: Array):
 				var directions: String = args[0]
 				_handle_loading_room(directions)
 				
+		"MAKE_END_DECISION":
+			var text = " ".join(args)
+			TimedPopup.show_end_decision_menu(text)
+				
+		"VICTORY":
+			players_nodes.clear()
+			monsters_nodes.clear()
+			get_tree().change_scene_to_file("res://scenes/lobby/Lobby.tscn")
+				
 		"GAME_OVER":
-			_show_message_popup("TUTTI I GIOCATORI SONO MORTI!\nGAME OVER")
+			players_nodes.clear()
+			monsters_nodes.clear()
 			if hud_bottom:
-				hud_bottom.hide() # Nasconde i bottoni delle azioni
+				hud_bottom.hide()
+			TimedPopup.show_message("La stanza è stata sciolta.\nTorni al menu principale...")
+			await get_tree().create_timer(3.0).timeout
+			NetworkManager.reset_connection()
+			get_tree().change_scene_to_file("res://scenes/main_menu/main_menu.tscn")
 				
 	# Aggiorna l'interfaccia ad ogni pacchetto ricevuto
 	if hud_top and hud_top.has_method("update_display"):
