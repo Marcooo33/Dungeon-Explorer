@@ -16,15 +16,12 @@ Game games[MAX_GAMES];
 int game_count = 0;
 
 // Prototipi
-int start_new_game(char *out_code);
 void *handle_client(void *arg);
-void *game_monitor_loop(void *arg); // Dichiarazione del monitor globale
+void *game_monitor_loop(void *arg);
 
 int main() {
     srand(time(NULL));
     
-    // NOTA: Rimosso signal(SIGCHLD, SIG_IGN) per consentire a waitpid di intercettare i figli terminati
-
     int server_fd;
     struct sockaddr_in address;
     int opt = 1;
@@ -67,7 +64,6 @@ int main() {
         
         if (client_socket_fd < 0) continue;
 
-        // ALLOCAZIONE DINAMICA: fondamentale per evitare SegFault tra i thread
         int *client_sock_ptr = malloc(sizeof(int));
         *client_sock_ptr = client_socket_fd;
 

@@ -302,9 +302,14 @@ void start_game(int game_idx){
         NULL
     };
 
+    char *game_path = "./bin/game";
+    if (access("./game", X_OK) == 0) {
+        game_path = "./game";
+    }
+
     int status = posix_spawn(
         &pid,
-        "/workspace/server/bin/game",
+        game_path,
         &actions,
         NULL,
         argv,
@@ -325,7 +330,7 @@ void start_game(int game_idx){
     }
 }
 
-// Monitor Thread Globale Semplificato
+// Monitor Thread Globale
 void *game_monitor_loop(void *arg) {
     while (1) {
         int status;
@@ -339,7 +344,7 @@ void *game_monitor_loop(void *arg) {
                 if (WIFEXITED(status)) {
                     int exit_code = WEXITSTATUS(status);
 
-                    // 🟢 L'HOST HA SCELTO DI CONTINUARE: Portiamo tutti indietro
+                    // L'Host ha scelto di continuare: Portiamo tutti in Lobby
                     if (exit_code == 10) {
                         printf("[MONITOR] Il creatore della partita %s ha scelto di continuare. Tutti tornano in Lobby.\n", games[idx].code);
                         
@@ -398,7 +403,7 @@ void *game_monitor_loop(void *arg) {
                             }
                         }
                     } 
-                    // 🔴 GAME OVER O SCIOGLIMENTO STANZA
+                    // Game over o scioglimento stanza
                     else {
                         printf("[MONITOR] La partita %s è conclusa o sciolta. Svuoto la stanza.\n", games[idx].code);
                         for (int i = 0; i < MAX_PLAYERS; i++) {
@@ -409,7 +414,7 @@ void *game_monitor_loop(void *arg) {
                         memset(&games[idx], 0, sizeof(Game));
                     }
                 } 
-                // ⚠️ CRASH DEL PROCESSO FIGLIO
+                // Attenzione: Il processo è crashato. Forzo la chiusura
                 else {
                     printf("[MONITOR] ATTENZIONE: Il processo %s è crashato. Forzo la chiusura.\n", games[idx].code);
                     for (int i = 0; i < MAX_PLAYERS; i++) {

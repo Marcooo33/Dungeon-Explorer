@@ -13,7 +13,7 @@ COPY shared /build/shared
 
 WORKDIR /build/server
 
-RUN make compile
+RUN make compile_matchmaker compile_game
 
 
 # ---------- runtime stage ----------
@@ -29,4 +29,4 @@ RUN apt-get update && apt-get install -y netcat-openbsd && rm -rf /var/lib/apt/l
 
 EXPOSE 8080
 
-CMD ["./server"]
+CMD ["./matchmaker"]
