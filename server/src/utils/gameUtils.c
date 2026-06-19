@@ -8,6 +8,7 @@
 #include <sys/socket.h>
 #include <math.h>
 #include "game.h"
+#include "encounter.h"
 
 EncounterFunction treasure_encounters[] = {treasure_encounter1, treasure_encounter2, treasure_encounter3};
 
@@ -245,13 +246,8 @@ int generate_room(Dungeon *dungeon, int *last_idx, int current_room_idx, Directi
     Room *new_room = &dungeon->rooms[new_idx];
 
     new_room->idx = new_idx;
-
-    // (2) scelta stanza compatibile, per ora mock, in futuro lettura dal json
     random_room_template(new_room, get_opposite_direction(door_direction));
-
-    // collega stanze
     new_room->connected_rooms[get_opposite_direction(door_direction)] = current_room_idx;
-
     new_room->completed = false;
 
     return new_idx;
