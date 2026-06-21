@@ -12,7 +12,6 @@
 
 EncounterFunction treasure_encounters[] = {treasure_encounter1, treasure_encounter2, treasure_encounter3};
 
-// Forward declaration (definita più avanti in questo file)
 void broadcast(const char *message);
 
 // Marca un giocatore come disconnesso: chiude il socket, lo rimuove dal gioco
@@ -56,7 +55,7 @@ void broadcast(const char *message) {
 }
 
 void broadcast_player_info(Player *player) {
-    if (!player->connected) return; // MAI inviare a Godot info di giocatori crashati (evita respawn "fantasma")
+    if (!player->connected) return; // no info di giocatori crashati a Godot (evita respawn "fantasma")
 
     char player_info_message[128];
     sprintf(player_info_message, "PLAYER_INFO %d %d %d %d %d %s:%d:%d %s:%d %s\n", 
@@ -103,6 +102,7 @@ void broadcast_monster_info(Monster *monster) {
     
 }
 
+//restituisce true se tutti i giocatori sono morti
 bool are_all_players_dead(Player *players, int num_players) {
     for (int i = 0; i < num_players; i++) {
         if (players[i].alive) return false;
@@ -110,6 +110,7 @@ bool are_all_players_dead(Player *players, int num_players) {
     return true;
 }
 
+//restituisce true se tutti i mostri sono morti
 bool are_all_monsters_dead(Monster *monsters, int num_monsters) {
     for (int i = 0; i < num_monsters; i++) {
         if (monsters[i].alive) return false;
@@ -117,6 +118,7 @@ bool are_all_monsters_dead(Monster *monsters, int num_monsters) {
     return true;
 }
 
+//reimposta la posizione dei giocatori all'inizio di ogni stanza 
 void reset_players_position(Player *player) {
     for (int i = 0; i < connected_count; i++) {
         player[i].x = 0;
@@ -124,6 +126,7 @@ void reset_players_position(Player *player) {
     }
 }
 
+//funzione per stanza di debug
 bool default_encounter() {
     // Default encounter function, can be overridden by specific room types
     sleep(2); // Simula un incontro che dura 2 secondi
@@ -131,7 +134,7 @@ bool default_encounter() {
     return true;
 }
 
-// (2) Mock funzione JSON
+//funzione per generare una stanza casuale con un incontro casuale
 void random_room_template(Room *room, Direction required_door){
     int room_type = rand() % 3;
 
@@ -200,7 +203,7 @@ void random_room_template(Room *room, Direction required_door){
     }
 }
 
-
+//funzione di utils per la generazione delle stanze, restituisce la direzione opposta a quella passata come parametro
 Direction get_opposite_direction(Direction door){
     switch(door){
         case NORTH: return SOUTH;
@@ -211,6 +214,7 @@ Direction get_opposite_direction(Direction door){
     }
 }
 
+//funzione di utils per la comunicazione con Godot, costruisce il messaggio LOAD_ROOM con le porte per la renderizzazione corretta della stanza
 void build_room_message(Room *room, char *buffer, size_t size) {
     char doors_str[8] = "";
     int pos = 0;
@@ -240,7 +244,7 @@ void build_room_message(Room *room, char *buffer, size_t size) {
     snprintf(buffer, size, "LOAD_ROOM %s\n", doors_str);
 }
 
-
+//funzione di utils per la generazione delle stanze, genera una nuova stanza collegata a quella corrente e restituisce l'indice della nuova stanza
 int generate_room(Dungeon *dungeon, int *last_idx, int current_room_idx, Direction door_direction){
     int new_idx = ++(*last_idx);
     Room *new_room = &dungeon->rooms[new_idx];
@@ -253,7 +257,7 @@ int generate_room(Dungeon *dungeon, int *last_idx, int current_room_idx, Directi
     return new_idx;
 }
 
-// (3) BFS per trovare il ramo più lungo del dungeon, da chiamare alla fine della enerazione del dungeon per generare la stanza del boss nel ramo più lungo
+//funzione di utils per la generazione delle stanze, trova la stanza più lontana dalla stanza iniziale (indice 0) e restituisce il suo indice
 int find_farthest_room(Dungeon *dungeon){
     int dist[1000] = {0};
     bool visited[1000] = {false};
@@ -287,19 +291,18 @@ int find_farthest_room(Dungeon *dungeon){
 }
 
 
-//Generates a dungeon with rooms_num *internal* rooms (not counting dead-ends and boss room)
+//funzione per generare un dungeon con un numero "rooms_num" di stanze interne, genera anche le stanze morte e la stanza del boss
 Dungeon generate_dungeon(int rooms_num){
-    //Dungeon allocation
     Dungeon dungeon;
     dungeon.rooms_num = rooms_num;
-    dungeon.rooms = calloc(rooms_num*3, sizeof(Room)); // allocate more rooms than rooms_num to account for dead-ends and boss room
+    dungeon.rooms = calloc(rooms_num*3, sizeof(Room)); // allochiamo più stanze del necessario per poter generare le stanze morte e la stanza del boss senza problemi di overflow
 
-    //Inizializzazione delle conessioni delle stanze (non so se necessario)
+    //Inizializzazione delle conessioni delle stanze
     for(int i=0;i<rooms_num*3;i++)
         for(int j=0;j<MAX_DOORS;j++)
             dungeon.rooms[i].connected_rooms[j] = -1;
 
-    //Starting room generation
+    //Generazione della stanza iniziale
     dungeon.rooms[0].idx = 0;
     dungeon.rooms[0].doors_num = 1;
     dungeon.rooms[0].id = "starting_room";
@@ -330,9 +333,8 @@ Dungeon generate_dungeon(int rooms_num){
 
     dungeon.rooms_num = generated;
 
-    //Dead-ends and boss room generation
-    /* 3) Questo ciclo serve a generare le stanze morte e la stanza del boss, la stanza del boss deve essere generata nel ramo più lungo del dungeon, quindi bisogna 
-    effettuare anche la ricerca del ramo più lungo oltre a generare le stanza morte per tutte quelle stanze che hanno porte non ancora connesse */
+    //--Generazione delle stanze morte e della stanza del boss--//
+    //Stanza morte: per ogni porta non collegata, generiamo una stanza morta
     for(int i=0;i<dungeon.rooms_num;i++){
         Room *r = &dungeon.rooms[i];
 
@@ -359,7 +361,7 @@ Dungeon generate_dungeon(int rooms_num){
 
     dungeon.rooms_num = generated;
 
-    // (3) boss nella stanza più lontana
+    //Generazione stanza del boss: trova la stanza più lontana dalla stanza iniziale e la trasforma in una stanza del boss
     int boss_idx = find_farthest_room(&dungeon);
     dungeon.rooms[boss_idx].type = "boss";
     dungeon.rooms[boss_idx].id = "boss_room";
@@ -395,6 +397,7 @@ bool is_valid_direction(Direction d, Room *room) {
     return false;
 }
 
+//funzione di utils per il debug
 void print_room(Room *r){
     if(r == NULL){
         printf("Room NULL\n");
@@ -431,6 +434,7 @@ void print_dungeon(Dungeon dungeon){
     }
 }
 
+//funzione di utils per il calcolo della distanza tra due punti (x1,y1) e (x2,y2)
 int distance(int x1, int y1, int x2, int y2) {
     return abs(x1 - x2) + abs(y1 - y2);
 }

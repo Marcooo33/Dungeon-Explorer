@@ -345,7 +345,7 @@ int main(int argc, char *argv[]) {
                players[i].x, players[i].y, players[i].gold);
     }
 
-    dungeon = generate_dungeon(5);
+    dungeon = generate_dungeon(6);
     int current_room_idx = 0;
     int next_room_idx    = -1;
     Room *current_room   = NULL;
