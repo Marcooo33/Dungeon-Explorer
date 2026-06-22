@@ -1,24 +1,51 @@
 [gd_scene format=3 uid="uid://p3xowvxpg8ps"]
 
-[ext_resource type="Texture2D" uid="uid://vrwaslycu2cn" path="res://characters/player/Sprites/player_animations.png" id="2_ixbpm"]
+[ext_resource type="Texture2D" uid="uid://dlc5euvmwa24d" path="res://assets/Pixel Crawler - Free Pack/Entities/Npc's/Knight/Idle/Idle-Sheet.png" id="1_508ok"]
 
-[sub_resource type="CircleShape2D" id="CircleShape2D_g2els"]
-radius = 7.0
+[sub_resource type="AtlasTexture" id="AtlasTexture_xxgcw"]
+atlas = ExtResource("1_508ok")
+region = Rect2(0, 0, 32, 32)
 
-[node name="Player" type="CharacterBody2D" unique_id=424238145]
-collision_mask = 16
-motion_mode = 1
+[sub_resource type="AtlasTexture" id="AtlasTexture_exd8k"]
+atlas = ExtResource("1_508ok")
+region = Rect2(32, 0, 32, 32)
 
-[node name="Sprite2D" type="Sprite2D" parent="." unique_id=1916547520]
-texture = ExtResource("2_ixbpm")
-hframes = 19
-vframes = 2
+[sub_resource type="AtlasTexture" id="AtlasTexture_5dc8e"]
+atlas = ExtResource("1_508ok")
+region = Rect2(64, 0, 32, 32)
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=346822672]
-position = Vector2(0, 16)
-shape = SubResource("CircleShape2D_g2els")
+[sub_resource type="AtlasTexture" id="AtlasTexture_ixbpm"]
+atlas = ExtResource("1_508ok")
+region = Rect2(96, 0, 32, 32)
 
-[node name="MyPlayerIndicator" type="Polygon2D" parent="." unique_id=102854569]
+[sub_resource type="SpriteFrames" id="SpriteFrames_c6leb"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_xxgcw")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_exd8k")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_5dc8e")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_ixbpm")
+}],
+"loop": true,
+"name": &"default",
+"speed": 5.0
+}]
+
+[node name="Player" type="Node2D" unique_id=221230223]
+
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="." unique_id=918912871]
+sprite_frames = SubResource("SpriteFrames_c6leb")
+autoplay = "default"
+frame_progress = 0.7609488
+
+[node name="MyPlayerIndicator" type="Polygon2D" parent="." unique_id=2076392254]
 visible = false
 position = Vector2(2.2737368e-13, -17)
 scale = Vector2(0.4117647, 0.54545456)

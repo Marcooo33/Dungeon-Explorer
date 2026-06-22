@@ -184,7 +184,7 @@ func _on_spostati_clicked():
 
 	var step = 50
 	var max_x = 450
-	var max_y = 200
+	var max_y = 150
 
 	# SU
 	if current_pos.y - step >= 0:

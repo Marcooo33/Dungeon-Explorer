@@ -7,9 +7,8 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /build
 
-# copiamo server e shared
+# copiamo server
 COPY server /build/server
-COPY shared /build/shared
 
 WORKDIR /build/server
 

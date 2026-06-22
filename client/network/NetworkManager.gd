@@ -97,5 +97,10 @@ func _handle_game(cmd: String, args: Array):
 		state = State.LOBBY
 		game_data_received.emit(cmd, args)
 		return
+	# JOIN_REQUEST può arrivare mentre siamo ancora in State.GAME
+	# (es. prima che VICTORY cambi la scena): lo gestiamo come in lobby.
+	if cmd == "JOIN_REQUEST":
+		_handle_lobby(cmd, args)
+		return
 	print("Sending to GameManager: ", cmd, " ", args)
 	game_data_received.emit(cmd, args)

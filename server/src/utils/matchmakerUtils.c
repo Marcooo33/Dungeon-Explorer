@@ -388,8 +388,13 @@ void *game_monitor_loop(void *arg) {
                         }
 
                         if (list_changed) {
-                            broadcast_player_list(&games[idx]);
+                            games[idx].num_players = 0;
+                            for (int i = 0; i < MAX_PLAYERS; i++) {
+                                if (games[idx].players[i].status == CONNECTED)
+                                    games[idx].num_players++;
+                            }
                         }
+                        broadcast_player_list(&games[idx]);
 
                         // Facciamo ripartire il thread dell'host che ascolta i comandi
                         int *p_idx = malloc(sizeof(int));

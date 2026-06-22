@@ -16,13 +16,13 @@ func _ready():
 func setup(monster_name: String, armor_type: String):
 	var name_lower = monster_name.to_lower()
 	var is_skeleton = "skeleton" in name_lower or "scheletro" in name_lower
-	# NUOVO: Aggiungiamo il controllo per il boss Knight
-	var is_knight = "knight" in name_lower or "boss" in name_lower
+	# NUOVO: Aggiungiamo il controllo per il boss rogue
+	var is_rogue = "rogue" in name_lower or "boss" in name_lower
 	
 	# Scegliamo il prefisso in base alla razza e all'armatura
-	if is_knight:
+	if is_rogue:
 		# Il boss ha una sua skin fissa, ignoriamo l'armatura visiva
-		armor_prefix = "knight_"
+		armor_prefix = "rogue_"
 		
 	elif is_skeleton:
 		match armor_type:

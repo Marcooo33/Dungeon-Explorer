@@ -252,7 +252,7 @@ bool combat_encounter(Player *players, int num_players) {
 bool boss_encounter(Player *players, int num_players) {
     broadcast("MESSAGE Entrate in una stanza più grande delle altre, al centro vedete un enorme mostro che vi fissa con occhi pieni di odio... è il boss del dungeon!\n");
 
-    Monster boss = {0, "Knight", 10, true, 200, 50, &monster_weapons[1], NULL}; /* Boss_Claws */
+    Monster boss = {0, "Rogue", 10, true, 200, 50, &monster_weapons[1], NULL}; /* Boss_Claws */
     broadcast_monster_info(&boss);
 
     int turn = 0;
