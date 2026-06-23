@@ -212,7 +212,7 @@ void player_turn(Player *p, Monster *monsters, int num_monsters) {
     }
 
     struct pollfd pfd = { p->socket_fd, POLLIN, 0 };
-    int r = poll(&pfd, 1, 15000); // 15 secondi
+    int r = poll(&pfd, 1, 120000); // 120 secondi
 
     if (r <= 0 || (pfd.revents & (POLLHUP | POLLERR))) {
         printf("[GAME] Player %d disconnesso o timeout durante MAKE_TURN_DECISION\n", p->id);

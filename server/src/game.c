@@ -199,7 +199,7 @@ static Direction vote_next_room(Room *current_room) {
     }
 
     /* Loop di raccolta voti con timeout 20 secondi */
-    int timeout_ms = 20000;
+    int timeout_ms = 30000;
     int elapsed    = 0;
     int step       = 1000;
 
